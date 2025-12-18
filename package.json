@@ -3,11 +3,18 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "dist-electron/main.js",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "npm run build:electron && concurrently \"vite\" \"wait-on http://localhost:5173 && npm run dev:electron\"",
+    "dev:vite": "vite",
+    "dev:electron": "cross-env NODE_ENV=development tsx electron/main.ts",
+    "build": "tsc -b && vite build && tsc -p tsconfig.electron.json",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "build:electron:watch": "tsc -p tsconfig.electron.json --watch",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron": "electron .",
+    "electron:dev": "cross-env NODE_ENV=development electron ."
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -35,9 +42,11 @@
     "globals": "^16.5.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.19",
+    "tsx": "^4.21.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "npm:rolldown-vite@7.2.5"
+    "vite": "npm:rolldown-vite@7.2.5",
+    "wait-on": "^8.0.5"
   },
   "overrides": {
     "vite": "npm:rolldown-vite@7.2.5"

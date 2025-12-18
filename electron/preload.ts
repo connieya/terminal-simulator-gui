@@ -1,10 +1,39 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
+import type { TcpConnectionConfig, TerminalCommand, TerminalResponse } from '../shared/types'
 
 // Electron Preload Script
-// 여기서 renderer와 main process 간의 안전한 통신을 설정합니다
+// Renderer와 Main Process 간의 안전한 통신을 설정합니다
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  // 예시: API를 여기에 추가할 수 있습니다
-  // platform: process.platform,
+  // TCP 통신 API
+  tcp: {
+    // TCP 서버에 연결
+    connect: (config?: TcpConnectionConfig) => 
+      ipcRenderer.invoke('tcp:connect', config) as Promise<{ success: boolean; error?: string }>,
+    
+    // TCP 연결 해제
+    disconnect: () => 
+      ipcRenderer.invoke('tcp:disconnect') as Promise<{ success: boolean; error?: string }>,
+    
+    // 연결 상태 확인
+    isConnected: () => 
+      ipcRenderer.invoke('tcp:isConnected') as Promise<boolean>,
+    
+    // 명령 전송
+    sendCommand: (command: TerminalCommand) => 
+      ipcRenderer.invoke('tcp:sendCommand', command) as Promise<{ 
+        success: boolean
+        response?: TerminalResponse
+        error?: string 
+      }>,
+    
+    // 카드 탭 트리거 (편의 함수)
+    tapCard: (cardData?: { type?: string; data?: string }) => 
+      ipcRenderer.invoke('tcp:tapCard', cardData) as Promise<{ 
+        success: boolean
+        response?: TerminalResponse
+        error?: string 
+      }>,
+  },
 })
 

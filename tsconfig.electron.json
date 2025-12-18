@@ -7,12 +7,20 @@
     "skipLibCheck": true,
 
     /* Bundler mode */
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
+    "moduleResolution": "node",
+    "allowImportingTsExtensions": false,
+    "verbatimModuleSyntax": false,
     "moduleDetection": "force",
     "noEmit": false,
     "outDir": "./dist-electron",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+
+    /* Path aliases */
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["./shared/*"]
+    },
 
     /* Linting */
     "strict": true,
@@ -20,6 +28,6 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["electron"]
+  "include": ["electron", "shared"]
 }
 
