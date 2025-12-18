@@ -62,6 +62,22 @@ export class TcpClient {
         }
     }
     /**
+     * 역 이름을 영어 소문자로 변환 (config 파일 형식에 맞춤)
+     */
+    getStationKey(station) {
+        if (!station)
+            return '';
+        const stationMap = {
+            '서울역': 'seoul',
+            '강남역': 'gangnam',
+            '종로3가역': 'jongno3ga',
+            '신도림역': 'sindorim',
+            '홍대입구역': 'hongdae',
+            '합정역': 'hapjeong',
+        };
+        return stationMap[station] || station.toLowerCase().replace(/\s+/g, '_');
+    }
+    /**
      * 명령어를 CLI 문자열로 변환
      */
     commandToCliString(command) {
@@ -73,7 +89,39 @@ export class TcpClient {
             case 'echo-test':
                 return 'echo-test-tps';
             case 'sync':
-                return 'sync-tms';
+                // sync 명령어는 terminalId와 type 정보가 필요함
+                const terminalId = command.terminalId || '';
+                const terminalType = command.terminalType;
+                // Terminal ID에서 역 이름 추출 (예: M-SEOUL-E01 -> seoul)
+                // 또는 command에서 station 정보 사용
+                let stationKey = '';
+                if (command.station) {
+                    // station 필드가 있으면 사용
+                    stationKey = this.getStationKey(command.station);
+                }
+                else if (terminalId) {
+                    // Terminal ID에서 역 이름 추출 (M-{역이름}-E01 형식)
+                    const match = terminalId.match(/^M-([A-Z0-9]+)-[EX]\d+$/);
+                    if (match) {
+                        const stationCode = match[1];
+                        // 역 코드를 역 이름으로 매핑
+                        const codeToName = {
+                            'SEOUL': 'seoul',
+                            'GANGNAM': 'gangnam',
+                            'JONGNO3GA': 'jongno3ga',
+                            'SINDORIM': 'sindorim',
+                            'HONGDAE': 'hongdae',
+                            'HAPJEONG': 'hapjeong',
+                        };
+                        stationKey = codeToName[stationCode] || stationCode.toLowerCase();
+                    }
+                }
+                if (!stationKey) {
+                    throw new Error('Station information is required for sync command');
+                }
+                const inOut = terminalType === 'entry' ? 'in' : terminalType === 'exit' ? 'out' :
+                    terminalId?.includes('-E') ? 'in' : terminalId?.includes('-X') ? 'out' : 'in';
+                return `sync-tms subway_${inOut}_${stationKey}`;
             case 'card_tap':
                 // 카드 탭 명령어는 추가 파라미터가 필요할 수 있음
                 return 'card-tap-tps'; // 필요시 수정

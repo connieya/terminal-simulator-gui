@@ -89,6 +89,8 @@ export function TerminalCard({ terminal }: TerminalCardProps) {
       const response = await tcpClient.sendCommand({
         type: 'sync',
         terminalId: terminal.terminalId,
+        terminalType: terminal.type, // 'entry' 또는 'exit'
+        station: terminal.station, // 역 이름 (예: '홍대입구역')
       })
 
       if (response.success) {

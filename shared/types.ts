@@ -43,6 +43,8 @@ export type TerminalCommandType =
 export type TerminalCommand = {
   type: TerminalCommandType
   terminalId?: string // 단말기 ID (선택적)
+  terminalType?: 'entry' | 'exit' // 승차/하차 구분 (sync 명령어용)
+  station?: string // 역 이름 (sync 명령어용)
   cardType?: 'transport' | 'credit' | 'debit'
   cardData?: string
   [key: string]: unknown // 기타 명령 파라미터

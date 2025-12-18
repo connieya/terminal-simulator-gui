@@ -101,6 +101,24 @@ const defaultTerminals: Omit<TerminalInfo, 'isPoweredOn' | 'isConnected'>[] = [
     station: '홍대입구역',
     type: 'exit' // 하차
   },
+  
+  // 합정역
+  { 
+    id: 'terminal-hapjeong-entry', 
+    terminalId: 'M-HAPJEONG-E01',
+    name: '합정역', 
+    line: '2호선', 
+    station: '합정역',
+    type: 'entry' // 승차
+  },
+  { 
+    id: 'terminal-hapjeong-exit', 
+    terminalId: 'M-HAPJEONG-X01',
+    name: '합정역', 
+    line: '2호선', 
+    station: '합정역',
+    type: 'exit' // 하차
+  },
 ]
 
 export const useTerminalStore = create<TerminalStore>((set) => ({
