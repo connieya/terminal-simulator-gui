@@ -1,7 +1,12 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'path'
-import { TcpClient } from './tcpClient'
-import type { TcpConnectionConfig, TerminalCommand } from '../shared/types'
+import { fileURLToPath } from 'url'
+import { TcpClient } from './tcpClient.js'
+import type { TcpConnectionConfig, TerminalCommand } from '../shared/types.js'
+
+// ESM에서 __dirname 정의
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 // Electron Main Process
 let mainWindow: BrowserWindow | null = null
@@ -18,10 +23,8 @@ function createWindow() {
   // 개발 모드와 프로덕션 모드에서 preload 경로 설정
   const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
   // preload는 항상 JavaScript 파일이어야 함 (Electron 제약)
-  // tsx로 실행할 때는 __dirname이 소스 폴더를 가리키므로 dist-electron을 사용
-  const preloadPath = isDev
-    ? path.join(__dirname, '../dist-electron/electron/preload.js')
-    : path.join(__dirname, 'preload.js')
+  // 빌드된 파일을 사용하므로 __dirname은 dist-electron/electron/을 가리킴
+  const preloadPath = path.join(__dirname, 'preload.js')
 
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -37,7 +40,7 @@ function createWindow() {
   if (isDev) {
     // 포트가 5173이 아닐 수 있으므로 환경 변수에서 가져오거나 기본값 사용
     // Vite가 다른 포트를 사용할 경우 환경 변수로 전달
-    const port = process.env.VITE_PORT || process.env.PORT || '5173'
+    const port = process.env.VITE_PORT || process.env.PORT || '5175'
     const url = `http://localhost:${port}`
     console.log(`Loading Vite dev server: ${url}`)
     if (mainWindow) {

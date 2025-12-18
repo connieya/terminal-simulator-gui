@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { TcpConnectionConfig, TerminalCommand, TerminalResponse } from '../shared/types'
+import type { TcpConnectionConfig, TerminalCommand, TerminalResponse } from '../shared/types.js'
 
 // Electron Preload Script
 // Renderer와 Main Process 간의 안전한 통신을 설정합니다

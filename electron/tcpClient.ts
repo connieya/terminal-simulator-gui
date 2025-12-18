@@ -1,5 +1,5 @@
 import { Socket } from 'net'
-import type { TcpConnectionConfig, TerminalCommand, TerminalResponse } from '../shared/types'
+import type { TcpConnectionConfig, TerminalCommand, TerminalResponse } from '../shared/types.js'
 
 /**
  * Java Terminal Simulator와의 TCP 통신을 담당하는 클라이언트

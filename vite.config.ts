@@ -11,4 +11,8 @@ export default defineConfig({
       '@shared': path.resolve(__dirname, './shared'),
     },
   },
+  server: {
+    port: 5175, // 다른 프로젝트와 겹치지 않는 포트
+    strictPort: true, // 포트가 사용 중이면 다른 포트로 변경하지 않음
+  },
 })
