@@ -12,12 +12,17 @@ export type CardTapCommand = {
   cardData?: string // 카드 데이터 (선택적, 없으면 랜덤 생성)
 }
 
+// 단말기 타입 (승차/하차)
+export type TerminalType = 'entry' | 'exit' // entry: 승차, exit: 하차
+
 // 단말기 정보
 export type TerminalInfo = {
   id: string
+  terminalId: string // Terminal ID (예: "T001", "T002")
   name: string // 예: "2호선 홍대입구역"
   line?: string // 예: "2호선"
   station?: string // 예: "홍대입구역"
+  type: TerminalType // 'entry': 승차, 'exit': 하차
   isPoweredOn: boolean
   isConnected: boolean
   lastCommandTime?: number

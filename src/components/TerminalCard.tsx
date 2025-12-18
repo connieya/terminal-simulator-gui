@@ -28,7 +28,7 @@ export function TerminalCard({ terminal }: TerminalCardProps) {
       const commandType = terminal.isPoweredOn ? 'signoff' : 'signon'
       const response = await tcpClient.sendCommand({
         type: commandType,
-        terminalId: terminal.id,
+        terminalId: terminal.terminalId,
       })
 
       if (response.success) {
@@ -58,7 +58,7 @@ export function TerminalCard({ terminal }: TerminalCardProps) {
 
       const response = await tcpClient.sendCommand({
         type: 'echo-test',
-        terminalId: terminal.id,
+        terminalId: terminal.terminalId,
       })
 
       if (response.success) {
@@ -88,7 +88,7 @@ export function TerminalCard({ terminal }: TerminalCardProps) {
 
       const response = await tcpClient.sendCommand({
         type: 'sync',
-        terminalId: terminal.id,
+        terminalId: terminal.terminalId,
       })
 
       if (response.success) {
@@ -111,11 +111,25 @@ export function TerminalCard({ terminal }: TerminalCardProps) {
     <div className="border rounded-lg p-4 bg-card hover:shadow-lg transition-shadow">
       {/* 단말기 헤더 */}
       <div className="flex items-start justify-between mb-4">
-        <div>
-          <h3 className="text-lg font-semibold text-foreground">{terminal.name}</h3>
-          {terminal.line && (
-            <p className="text-sm text-muted-foreground">{terminal.line}</p>
-          )}
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="text-lg font-semibold text-foreground">{terminal.name}</h3>
+            <span className={`px-2 py-0.5 text-xs font-medium rounded ${
+              terminal.type === 'entry' 
+                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' 
+                : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+            }`}>
+              {terminal.type === 'entry' ? '승차' : '하차'}
+            </span>
+          </div>
+          <div className="space-y-1">
+            {terminal.line && (
+              <p className="text-sm text-muted-foreground">{terminal.line}</p>
+            )}
+            <p className="text-xs font-mono text-muted-foreground">
+              Terminal ID: <span className="font-semibold">{terminal.terminalId}</span>
+            </p>
+          </div>
         </div>
         
         {/* 상태 표시 */}

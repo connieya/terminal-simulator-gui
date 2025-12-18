@@ -86,7 +86,7 @@ export class TcpClient {
       case 'echo-test':
         return 'echo-test-tps'
       case 'sync':
-        return 'sync-tps'
+        return 'sync-tms'
       case 'card_tap':
         // 카드 탭 명령어는 추가 파라미터가 필요할 수 있음
         return 'card-tap-tps' // 필요시 수정
