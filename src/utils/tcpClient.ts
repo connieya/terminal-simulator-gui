@@ -36,8 +36,10 @@ export class TcpClientService {
    * TCP 서버에 연결
    */
   async connect(config?: TcpConnectionConfig): Promise<void> {
+    console.log('[TcpClient] connect called, window.electronAPI:', window.electronAPI)
     if (!window.electronAPI) {
-      throw new Error('Electron API is not available')
+      console.error('[TcpClient] Electron API is not available')
+      throw new Error('Electron API is not available. Please run this application in Electron, not in a web browser.')
     }
     const result = await window.electronAPI.tcp.connect(config)
     if (!result.success) {

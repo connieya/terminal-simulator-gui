@@ -1,6 +1,9 @@
-import { contextBridge, ipcRenderer } from 'electron';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const { contextBridge, ipcRenderer } = require('electron');
 // Electron Preload Script
 // Renderer와 Main Process 간의 안전한 통신을 설정합니다
+console.log('[Preload] Preload script loaded');
 contextBridge.exposeInMainWorld('electronAPI', {
     // TCP 통신 API
     tcp: {

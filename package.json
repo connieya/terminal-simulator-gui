@@ -9,7 +9,7 @@
     "dev:vite": "vite",
     "dev:electron": "cross-env NODE_ENV=development electron dist-electron/electron/main.js",
     "build": "tsc -b && vite build && tsc -p tsconfig.electron.json",
-    "build:electron": "tsc -p tsconfig.electron.json",
+    "build:electron": "tsc -p tsconfig.electron.json && tsc -p tsconfig.preload.json",
     "build:electron:watch": "tsc -p tsconfig.electron.json --watch",
     "lint": "eslint .",
     "preview": "vite preview",

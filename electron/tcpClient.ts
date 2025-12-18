@@ -75,7 +75,34 @@ export class TcpClient {
   }
 
   /**
-   * Java Terminal Simulator에 명령 전송
+   * 명령어를 CLI 문자열로 변환
+   */
+  private commandToCliString(command: TerminalCommand): string {
+    switch (command.type) {
+      case 'signon':
+        return 'signon-tps'
+      case 'signoff':
+        return 'signoff-tps'
+      case 'echo-test':
+        return 'echo-test-tps'
+      case 'sync':
+        return 'sync-tps'
+      case 'card_tap':
+        // 카드 탭 명령어는 추가 파라미터가 필요할 수 있음
+        return 'card-tap-tps' // 필요시 수정
+      case 'ping':
+        return 'ping-tps'
+      case 'status':
+        return 'status-tps'
+      case 'reset':
+        return 'reset-tps'
+      default:
+        throw new Error(`Unknown command type: ${(command as any).type}`)
+    }
+  }
+
+  /**
+   * Java Terminal Simulator에 CLI 명령 전송
    */
   async sendCommand(command: TerminalCommand): Promise<TerminalResponse> {
     if (!this.socket || this.socket.readyState !== 'open') {
@@ -83,7 +110,11 @@ export class TcpClient {
     }
 
     return new Promise((resolve, reject) => {
-      const message = JSON.stringify(command) + '\n' // 줄바꿈으로 메시지 구분
+      // CLI 명령어 문자열로 변환
+      const cliCommand = this.commandToCliString(command)
+      const message = cliCommand + '\n' // 줄바꿈으로 메시지 구분
+      
+      console.log(`Sending CLI command: ${cliCommand}`)
       
       const timeout = setTimeout(() => {
         reject(new Error('Command timeout'))
@@ -116,6 +147,7 @@ export class TcpClient {
 
   /**
    * 데이터 수신 처리
+   * Java 서버가 JSON 또는 텍스트 응답을 보낼 수 있음
    */
   private handleData(data: Buffer): void {
     this.messageBuffer += data.toString()
@@ -127,10 +159,24 @@ export class TcpClient {
     for (const line of lines) {
       if (line.trim()) {
         try {
-          const response: TerminalResponse = JSON.parse(line)
+          // 먼저 JSON으로 파싱 시도
+          const parsed = JSON.parse(line)
+          const response: TerminalResponse = {
+            success: parsed.success !== false,
+            message: parsed.message || line,
+            data: parsed.data,
+            timestamp: parsed.timestamp || Date.now(),
+          }
           this.emitResponse(response)
         } catch (error) {
-          console.error('Failed to parse response:', error, line)
+          // JSON이 아니면 텍스트 응답으로 처리
+          const response: TerminalResponse = {
+            success: true, // 텍스트 응답은 기본적으로 성공으로 간주
+            message: line.trim(),
+            timestamp: Date.now(),
+          }
+          console.log('Received text response:', line)
+          this.emitResponse(response)
         }
       }
     }

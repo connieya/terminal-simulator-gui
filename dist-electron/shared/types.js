@@ -4,7 +4,7 @@
 // 기본 TCP 설정
 export const DEFAULT_TCP_CONFIG = {
     host: 'localhost',
-    port: 8080, // Java Terminal Simulator의 기본 포트 (필요시 변경)
+    port: 9999, // Java Terminal Simulator 소켓 서버 포트
     timeout: 5000,
     reconnectInterval: 3000,
 };
