@@ -240,6 +240,22 @@ export class TcpClient {
         return errorKeywords.some((keyword) => fullText.includes(keyword.toLowerCase()));
     }
     /**
+     * deny-list 에러 여부 판단
+     */
+    isDenyListError(lines) {
+        const denyListKeywords = [
+            "deny list",
+            "deny-list",
+            "denylist",
+            "Card is in deny list",
+            "Transaction declined",
+            "거부된 카드",
+            "승차 불가",
+        ];
+        const fullText = lines.join("\n").toLowerCase();
+        return denyListKeywords.some((keyword) => fullText.toLowerCase().includes(keyword.toLowerCase()));
+    }
+    /**
      * 현재 실행 중인 명령 타입 반환
      */
     getCurrentCommandType() {
@@ -318,7 +334,11 @@ export class TcpClient {
                         const commandType = this.getCurrentCommandType();
                         let responseMessage = fullMessage;
                         if (commandType === "card_tap") {
-                            if (isTransactionSuccess) {
+                            // deny-list 에러인 경우 특별한 메시지 표시
+                            if (this.isDenyListError(this.responseBuffer)) {
+                                responseMessage = "승차 할 수 없는 카드입니다.";
+                            }
+                            else if (isTransactionSuccess) {
                                 responseMessage = `승차/하차 성공\n\n${fullMessage}`;
                             }
                             else {
