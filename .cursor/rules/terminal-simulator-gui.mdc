@@ -136,3 +136,12 @@ npm run build
 - 실시간 로그 표시 기능
 - 단말기 설정 관리 기능
 - 배치 명령 실행 기능
+
+## Git 커밋 Scope 참조
+프로젝트별 Git 커밋 scope 목록 (상세한 커밋 규칙은 `.cursorrules` 파일 참조):
+- `ui`: UI 컴포넌트 관련 변경
+- `electron`: Electron Main Process 관련 변경
+- `tcp`: TCP 통신 관련 변경
+- `store`: 상태 관리 (Zustand) 관련 변경
+- `config`: 설정 관련 변경
+- `build`: 빌드 설정 관련 변경
