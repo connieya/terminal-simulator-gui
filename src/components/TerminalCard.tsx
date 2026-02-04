@@ -7,6 +7,7 @@ import {
   busRoutes,
   subwayStations,
   type BusRouteOption,
+  type SubwayStationOption,
 } from "@/data/terminalPresets";
 
 interface TerminalCardProps {
@@ -269,11 +270,21 @@ export function TerminalCard({ terminal }: TerminalCardProps) {
           </div>
           <div className="space-y-1">
             {terminal.line && (
-              <p className="text-sm text-muted-foreground">{terminal.line}</p>
+              <p className="text-sm text-muted-foreground">
+                {terminal.line}
+              </p>
             )}
             {terminal.station && (
               <p className="text-sm text-muted-foreground">
                 {isSubway ? "역" : "정류장"}: {terminal.station}
+              </p>
+            )}
+            {isSubway && selectedOption && (
+              <p className="text-xs font-mono text-muted-foreground">
+                Station ID:{" "}
+                <span className="font-semibold">
+                  {(selectedOption as SubwayStationOption).stationId}
+                </span>
               </p>
             )}
             <p className="text-xs font-mono text-muted-foreground">

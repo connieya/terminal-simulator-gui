@@ -2,6 +2,8 @@ export type SubwayStationOption = {
   id: string
   name: string
   line?: string
+  /** journeyLog 내 역 식별자 (external_station_no, 예: 0201) */
+  stationId: string
   entryTerminalId: string
   exitTerminalId: string
 }
@@ -24,6 +26,7 @@ export const subwayStations: SubwayStationOption[] = [
     id: 'seoul',
     name: '서울역',
     line: '1호선',
+    stationId: '1251',
     entryTerminalId: 'M-SEOUL-E01',
     exitTerminalId: 'M-SEOUL-X01',
   },
@@ -31,6 +34,7 @@ export const subwayStations: SubwayStationOption[] = [
     id: 'gangnam',
     name: '강남역',
     line: '2호선',
+    stationId: '1214',
     entryTerminalId: 'M-GANGNAM-E01',
     exitTerminalId: 'M-GANGNAM-X01',
   },
@@ -38,6 +42,7 @@ export const subwayStations: SubwayStationOption[] = [
     id: 'jongno3ga',
     name: '종로3가역',
     line: '1호선',
+    stationId: '3120',
     entryTerminalId: 'M-JONGNO3GA-E01',
     exitTerminalId: 'M-JONGNO3GA-X01',
   },
@@ -45,6 +50,7 @@ export const subwayStations: SubwayStationOption[] = [
     id: 'sindorim',
     name: '신도림역',
     line: '2호선',
+    stationId: '1023',
     entryTerminalId: 'M-SINDORIM-E01',
     exitTerminalId: 'M-SINDORIM-X01',
   },
@@ -52,6 +58,7 @@ export const subwayStations: SubwayStationOption[] = [
     id: 'hongdae',
     name: '홍대입구역',
     line: '2호선',
+    stationId: '0239',
     entryTerminalId: 'M-HONGDAE-E01',
     exitTerminalId: 'M-HONGDAE-X01',
   },
@@ -59,6 +66,7 @@ export const subwayStations: SubwayStationOption[] = [
     id: 'hapjeong',
     name: '합정역',
     line: '2호선',
+    stationId: '0238',
     entryTerminalId: 'M-HAPJEONG-E01',
     exitTerminalId: 'M-HAPJEONG-X01',
   },
@@ -66,6 +74,7 @@ export const subwayStations: SubwayStationOption[] = [
     id: 'sicheong',
     name: '시청',
     line: '2호선',
+    stationId: '0201',
     entryTerminalId: 'M-SICHEONG-E01',
     exitTerminalId: 'M-SICHEONG-X01',
   },
@@ -73,6 +82,7 @@ export const subwayStations: SubwayStationOption[] = [
     id: 'euljiro3ga',
     name: '을지로3가',
     line: '2호선',
+    stationId: '0203',
     entryTerminalId: 'M-EULJIRO3GA-E01',
     exitTerminalId: 'M-EULJIRO3GA-X01',
   },
@@ -80,6 +90,7 @@ export const subwayStations: SubwayStationOption[] = [
     id: 'hanyangdae',
     name: '한양대',
     line: '2호선',
+    stationId: '0209',
     entryTerminalId: 'M-HANYANGDAE-E01',
     exitTerminalId: 'M-HANYANGDAE-X01',
   },
@@ -87,6 +98,7 @@ export const subwayStations: SubwayStationOption[] = [
     id: 'gyodae',
     name: '교대',
     line: '2호선',
+    stationId: '0223',
     entryTerminalId: 'M-GYODAE-E01',
     exitTerminalId: 'M-GYODAE-X01',
   },
@@ -94,6 +106,7 @@ export const subwayStations: SubwayStationOption[] = [
     id: 'bangbae',
     name: '방배',
     line: '2호선',
+    stationId: '0225',
     entryTerminalId: 'M-BANGBAE-E01',
     exitTerminalId: 'M-BANGBAE-X01',
   },

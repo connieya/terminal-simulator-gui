@@ -17,7 +17,7 @@ function App() {
             <>
               <div className="max-w-7xl mx-auto">
                 <h1 className="text-3xl font-bold mb-6">
-                  교통 단말기 관리 시스템
+                  EMV 교통 단말기 시뮬레이터
                 </h1>
                 <TerminalList />
               </div>
