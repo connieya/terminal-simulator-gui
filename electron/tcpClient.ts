@@ -95,7 +95,9 @@ export class TcpClient {
       홍대입구역: "hongdae",
       합정역: "hapjeong",
       시청: "sicheong",
+      시청역: "sicheong",
       을지로3가: "euljiro3ga",
+      을지로3가역: "euljiro3ga",
       한양대: "hanyangdae",
       교대: "gyodae",
       방배: "bangbae",
@@ -134,26 +136,25 @@ export class TcpClient {
       case "echo-test":
         return "echo-test-tps";
       case "sync": {
-        // sync 명령어는 terminalId와 type 정보가 필요함
+        // presetKey가 있으면 그대로 사용 (TerminalConfig.json journeyPresets 키와 일치)
+        if (command.presetKey && String(command.presetKey).trim()) {
+          return `sync-tms ${String(command.presetKey).trim()}`;
+        }
+        // 이하: presetKey 없을 때 기존 로직 (station/terminalId로 조합)
         const terminalId = command.terminalId || "";
         const terminalType = command.terminalType as
           | "entry"
           | "exit"
           | undefined;
 
-        // Terminal ID에서 역 이름 추출 (예: M-SEOUL-E01 -> seoul)
-        // 또는 command에서 station 정보 사용
         let stationKey = "";
 
         if (command.station) {
-          // station 필드가 있으면 사용
           stationKey = this.getStationKey(command.station);
         } else if (terminalId) {
-          // Terminal ID에서 역 이름 추출 (M-{역이름}-E01 형식)
           const match = terminalId.match(/^M-([A-Z0-9]+)-[EX]\d+$/);
           if (match) {
             const stationCode = match[1];
-            // 역 코드를 역 이름으로 매핑
             const codeToName: Record<string, string> = {
               SEOUL: "seoul",
               GANGNAM: "gangnam",
@@ -161,6 +162,8 @@ export class TcpClient {
               SINDORIM: "sindorim",
               HONGDAE: "hongdae",
               HAPJEONG: "hapjeong",
+              SICHEONG: "sicheong",
+              EULJIRO3GA: "euljiro3ga",
             };
             stationKey = codeToName[stationCode] || stationCode.toLowerCase();
           }
@@ -185,7 +188,11 @@ export class TcpClient {
         return `sync-tms ${transitPrefix}_${inOut}_${stationKey}`;
       }
       case "card_tap": {
-        // 카드 탭 명령어: authorization-tps subway_in_{역이름} 또는 authorization-tps subway_out_{역이름}
+        // presetKey가 있으면 그대로 사용 (TerminalConfig.json journeyPresets 키와 일치)
+        if (command.presetKey && String(command.presetKey).trim()) {
+          return `authorization-tps ${String(command.presetKey).trim()}`;
+        }
+        // 이하: presetKey 없을 때 기존 로직
         const cardTerminalId = command.terminalId || "";
         const cardTerminalType = command.terminalType as
           | "entry"
@@ -207,6 +214,8 @@ export class TcpClient {
               SINDORIM: "sindorim",
               HONGDAE: "hongdae",
               HAPJEONG: "hapjeong",
+              SICHEONG: "sicheong",
+              EULJIRO3GA: "euljiro3ga",
             };
             cardStationKey =
               codeToName[stationCode] || stationCode.toLowerCase();

@@ -13,6 +13,10 @@ export type BusRouteOption = {
   exitStopName: string
   entryTerminalId: string
   exitTerminalId: string
+  /** TerminalConfig.json journeyPresets 키 (승차) */
+  entryPresetKey: string
+  /** TerminalConfig.json journeyPresets 키 (하차) */
+  exitPresetKey: string
 }
 
 export const subwayStations: SubwayStationOption[] = [
@@ -103,6 +107,8 @@ export const busRoutes: BusRouteOption[] = [
     exitStopName: '영등포역',
     entryTerminalId: 'B12001',
     exitTerminalId: 'B12002',
+    entryPresetKey: 'bus_in_dobongsan',
+    exitPresetKey: 'bus_out_yeongdeungpo',
   },
   {
     id: 'hapjeong_to_dongdaemun',
@@ -111,6 +117,8 @@ export const busRoutes: BusRouteOption[] = [
     exitStopName: '동대문역.흥인지문',
     entryTerminalId: 'B-HAPJEONG-E01',
     exitTerminalId: 'B-DONGDAEMUN-X01',
+    entryPresetKey: 'bus_in_hapjeong',
+    exitPresetKey: 'bus_out_dongdaemun',
   },
   {
     id: 'janghan_to_kyunghee',
@@ -119,6 +127,8 @@ export const busRoutes: BusRouteOption[] = [
     exitStopName: '경희대의료원.경희여중고',
     entryTerminalId: 'B-JANGHANPYEONG-E01',
     exitTerminalId: 'B-KYUNGHEE-X01',
+    entryPresetKey: 'bus_in_janghanpyeong',
+    exitPresetKey: 'bus_out_kyunghee',
   },
   {
     id: 'seodaemun_to_gajwa',
@@ -127,5 +137,7 @@ export const busRoutes: BusRouteOption[] = [
     exitStopName: '가좌역3번출구',
     entryTerminalId: 'B-SEODAEMUN-E01',
     exitTerminalId: 'B-GAJWA-X01',
+    entryPresetKey: 'bus_in_seodaemun',
+    exitPresetKey: 'bus_out_gajwa',
   },
 ]

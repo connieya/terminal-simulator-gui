@@ -3,7 +3,11 @@ import { useTerminalStore } from "@/stores/terminalStore";
 import { tcpClient } from "@/utils/tcpClient";
 import { useToast } from "@/contexts/ToastContext";
 import type { TerminalInfo } from "@shared/types";
-import { busRoutes, subwayStations } from "@/data/terminalPresets";
+import {
+  busRoutes,
+  subwayStations,
+  type BusRouteOption,
+} from "@/data/terminalPresets";
 
 interface TerminalCardProps {
   terminal: TerminalInfo;
@@ -48,6 +52,17 @@ export function TerminalCard({ terminal }: TerminalCardProps) {
   const resolveLineName = () => {
     if (!selectedOption) return terminal.line;
     return isSubway ? selectedOption.line : selectedOption.routeName;
+  };
+
+  /** TerminalConfig.json journeyPresets 키와 동일한 preset 이름 (sync/authorization-tps 인자로 사용) */
+  const getPresetKey = (): string => {
+    if (!selectedOption) return "";
+    if (isSubway) {
+      const inOut = terminal.type === "entry" ? "in" : "out";
+      return `subway_${inOut}_${selectedOption.id}`;
+    }
+    const busOption = selectedOption as BusRouteOption;
+    return terminal.type === "entry" ? busOption.entryPresetKey : busOption.exitPresetKey;
   };
 
   const handleStationChange = (id: string) => {
@@ -170,9 +185,10 @@ export function TerminalCard({ terminal }: TerminalCardProps) {
       const response = await tcpClient.sendCommand({
         type: "sync",
         terminalId: terminal.terminalId,
-        terminalType: terminal.type, // 'entry' 또는 'exit'
-        station: terminal.station, // 역 이름 (예: '홍대입구역')
+        terminalType: terminal.type,
+        station: terminal.station,
         transitType: terminal.transitType,
+        presetKey: getPresetKey(), // TerminalConfig journeyPresets 키와 동일하게 전달
       });
 
       if (response.success) {
@@ -205,9 +221,10 @@ export function TerminalCard({ terminal }: TerminalCardProps) {
       const response = await tcpClient.sendCommand({
         type: "card_tap",
         terminalId: terminal.terminalId,
-        terminalType: terminal.type, // 'entry' 또는 'exit'
-        station: terminal.station, // 역 이름 (예: '홍대입구역')
+        terminalType: terminal.type,
+        station: terminal.station,
         transitType: terminal.transitType,
+        presetKey: getPresetKey(), // TerminalConfig journeyPresets 키와 동일하게 전달
       });
 
       if (response.success) {
