@@ -28,15 +28,18 @@ terminal-simulator-gui/
 ├── shared/
 │   └── types.ts              # 공유 타입 (TerminalInfo, TerminalCommand, TcpConnectionConfig 등)
 ├── src/                      # React 렌더러 (Vite 빌드)
-│   ├── App.tsx               # 루트: 단말기 목록 + 연결 설정
+│   ├── App.tsx               # 루트: 좌측 탭 + 탭별 화면 분기
 │   ├── main.tsx              # React 진입점
 │   ├── components/           # UI 컴포넌트
+│   │   ├── LeftTabs.tsx      # 좌측 탭 (연동/직접거래)
 │   │   ├── TerminalList.tsx  # 단말기 카드 목록
 │   │   ├── TerminalCard.tsx  # 개별 단말기 카드 (정보·액션)
 │   │   ├── CardTapButton.tsx # 카드 탭 시뮬레이션 버튼
 │   │   ├── ConnectionSettings.tsx  # TCP 연결 설정 (호스트/포트)
 │   │   ├── TcpConnectionPanel.tsx   # 연결 상태·연결/해제 UI
 │   │   └── Toast.tsx         # 토스트 알림
+│   ├── data/
+│   │   └── terminalPresets.ts # 지하철/버스 선택 옵션
 │   ├── contexts/
 │   │   └── ToastContext.tsx  # 전역 토스트 컨텍스트
 │   ├── stores/
@@ -74,10 +77,11 @@ terminal-simulator-gui/
 
 ### 3. React 앱 (`src/`)
 
-- **App**: `ToastProvider` + 단말기 목록(`TerminalList`) + 연결 설정(`ConnectionSettings`).
-- **TerminalList / TerminalCard**: `terminalStore`의 단말기 목록 표시, 전원/연결 상태, 카드 탭 등 액션.
+- **App**: 좌측 탭(`LeftTabs`)으로 **연동 모드/직접 거래 모드** 화면 분기.
+- **TerminalList / TerminalCard**: 지하철/버스 2개 단말기만 표시, 역/정류장·승차/하차 선택 UI 제공.
 - **ConnectionSettings / TcpConnectionPanel**: TCP 호스트·포트 설정, 연결/해제, 상태 표시.
 - **stores/terminalStore**: Zustand로 단말기 CRUD, 전원/연결 상태.
+- **data/terminalPresets**: `TerminalConfig.json` 기반의 지하철/버스 옵션 데이터.
 - **utils/tcpClient**: Renderer에서 `window.electronAPI.tcp` 호출만 담당 (실제 소켓은 Main의 `tcpClient.ts`).
 
 ---

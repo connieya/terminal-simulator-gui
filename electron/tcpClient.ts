@@ -94,9 +94,32 @@ export class TcpClient {
       신도림역: "sindorim",
       홍대입구역: "hongdae",
       합정역: "hapjeong",
+      시청: "sicheong",
+      을지로3가: "euljiro3ga",
+      한양대: "hanyangdae",
+      교대: "gyodae",
+      방배: "bangbae",
+      도봉산역: "dobongsan",
+      영등포역: "yeongdeungpo",
+      "동대문역.흥인지문": "dongdaemun",
+      장한평역3번출구: "janghanpyeong",
+      "경희대의료원.경희여중고": "kyunghee",
+      서대문문화체육회관입구: "seodaemun",
+      가좌역3번출구: "gajwa",
     };
 
     return stationMap[station] || station.toLowerCase().replace(/\s+/g, "_");
+  }
+
+  /**
+   * 단말기 타입을 기준으로 노선 구분(지하철/버스) 결정
+   */
+  private resolveTransitPrefix(command: TerminalCommand): "subway" | "bus" {
+    if (command.transitType === "bus" || command.transitType === "subway") {
+      return command.transitType;
+    }
+    const terminalId = command.terminalId || "";
+    return terminalId.startsWith("B") ? "bus" : "subway";
   }
 
   /**
@@ -110,7 +133,7 @@ export class TcpClient {
         return "signoff-tps";
       case "echo-test":
         return "echo-test-tps";
-      case "sync":
+      case "sync": {
         // sync 명령어는 terminalId와 type 정보가 필요함
         const terminalId = command.terminalId || "";
         const terminalType = command.terminalType as
@@ -146,6 +169,7 @@ export class TcpClient {
         if (!stationKey) {
           throw new Error("Station information is required for sync command");
         }
+        const transitPrefix = this.resolveTransitPrefix(command);
 
         const inOut =
           terminalType === "entry"
@@ -158,8 +182,9 @@ export class TcpClient {
             ? "out"
             : "in";
 
-        return `sync-tms subway_${inOut}_${stationKey}`;
-      case "card_tap":
+        return `sync-tms ${transitPrefix}_${inOut}_${stationKey}`;
+      }
+      case "card_tap": {
         // 카드 탭 명령어: authorization-tps subway_in_{역이름} 또는 authorization-tps subway_out_{역이름}
         const cardTerminalId = command.terminalId || "";
         const cardTerminalType = command.terminalType as
@@ -193,6 +218,7 @@ export class TcpClient {
             "Station information is required for card_tap command"
           );
         }
+        const cardTransitPrefix = this.resolveTransitPrefix(command);
 
         const cardInOut =
           cardTerminalType === "entry"
@@ -205,7 +231,8 @@ export class TcpClient {
             ? "out"
             : "in";
 
-        return `authorization-tps subway_${cardInOut}_${cardStationKey}`;
+        return `authorization-tps ${cardTransitPrefix}_${cardInOut}_${cardStationKey}`;
+      }
       case "ping":
         return "ping-tps";
       case "status":
@@ -213,7 +240,7 @@ export class TcpClient {
       case "reset":
         return "reset-tps";
       default:
-        throw new Error(`Unknown command type: ${(command as any).type}`);
+        throw new Error(`Unknown command type: ${String(command.type)}`);
     }
   }
 
@@ -391,7 +418,7 @@ export class TcpClient {
             timestamp: parsed.timestamp || Date.now(),
           };
           this.emitResponse(response);
-        } catch (error) {
+        } catch {
           // JSON이 아니면 텍스트 응답으로 처리
           // 여러 줄 응답을 버퍼에 모음
           this.responseBuffer.push(line.trim());

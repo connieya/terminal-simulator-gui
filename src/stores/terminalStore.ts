@@ -10,114 +10,25 @@ interface TerminalStore {
   setTerminalConnected: (id: string, isConnected: boolean) => void
 }
 
-// 기본 단말기 데이터 (DB 쿼리 기반)
+// 기본 단말기 데이터 (지하철/버스 2개만 유지)
 const defaultTerminals: Omit<TerminalInfo, 'isPoweredOn' | 'isConnected'>[] = [
-  // 서울역
-  { 
-    id: 'terminal-seoul-entry', 
+  {
+    id: 'terminal-subway',
+    transitType: 'subway',
     terminalId: 'M-SEOUL-E01',
-    name: '서울역', 
-    line: '1호선', 
+    name: '지하철 단말기',
+    line: '1호선',
     station: '서울역',
-    type: 'entry' // 승차
+    type: 'entry', // 승차
   },
-  { 
-    id: 'terminal-seoul-exit', 
-    terminalId: 'M-SEOUL-X01',
-    name: '서울역', 
-    line: '1호선', 
-    station: '서울역',
-    type: 'exit' // 하차
-  },
-  
-  // 강남역
-  { 
-    id: 'terminal-gangnam-entry', 
-    terminalId: 'M-GANGNAM-E01',
-    name: '강남역', 
-    line: '2호선', 
-    station: '강남역',
-    type: 'entry' // 승차
-  },
-  { 
-    id: 'terminal-gangnam-exit', 
-    terminalId: 'M-GANGNAM-X01',
-    name: '강남역', 
-    line: '2호선', 
-    station: '강남역',
-    type: 'exit' // 하차
-  },
-  
-  // 종로3가역
-  { 
-    id: 'terminal-jongno3ga-entry', 
-    terminalId: 'M-JONGNO3GA-E01',
-    name: '종로3가역', 
-    line: '1호선', 
-    station: '종로3가역',
-    type: 'entry' // 승차
-  },
-  { 
-    id: 'terminal-jongno3ga-exit', 
-    terminalId: 'M-JONGNO3GA-X01',
-    name: '종로3가역', 
-    line: '1호선', 
-    station: '종로3가역',
-    type: 'exit' // 하차
-  },
-  
-  // 신도림역
-  { 
-    id: 'terminal-sindorim-entry', 
-    terminalId: 'M-SINDORIM-E01',
-    name: '신도림역', 
-    line: '2호선', 
-    station: '신도림역',
-    type: 'entry' // 승차
-  },
-  { 
-    id: 'terminal-sindorim-exit', 
-    terminalId: 'M-SINDORIM-X01',
-    name: '신도림역', 
-    line: '2호선', 
-    station: '신도림역',
-    type: 'exit' // 하차
-  },
-  
-  // 홍대입구역
-  { 
-    id: 'terminal-hongdae-entry', 
-    terminalId: 'M-HONGDAE-E01',
-    name: '홍대입구역', 
-    line: '2호선', 
-    station: '홍대입구역',
-    type: 'entry' // 승차
-  },
-  { 
-    id: 'terminal-hongdae-exit', 
-    terminalId: 'M-HONGDAE-X01',
-    name: '홍대입구역', 
-    line: '2호선', 
-    station: '홍대입구역',
-    type: 'exit' // 하차
-  },
-  
-  // 합정역
-  { 
-    id: 'terminal-hapjeong-entry', 
-    terminalId: 'M-HAPJEONG-E01',
-    name: '합정역', 
-    line: '2호선', 
-    station: '합정역',
-    type: 'entry' // 승차
-  },
-  { 
-    id: 'terminal-hapjeong-exit', 
-    terminalId: 'M-HAPJEONG-X01',
-    name: '합정역', 
-    line: '2호선', 
-    station: '합정역',
-    type: 'exit' // 하차
+  {
+    id: 'terminal-bus',
+    transitType: 'bus',
+    terminalId: 'B12001',
+    name: '버스 단말기',
+    line: '새벽A160',
+    station: '도봉산역',
+    type: 'entry', // 승차
   },
 ]
 

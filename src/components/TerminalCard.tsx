@@ -3,6 +3,7 @@ import { useTerminalStore } from "@/stores/terminalStore";
 import { tcpClient } from "@/utils/tcpClient";
 import { useToast } from "@/contexts/ToastContext";
 import type { TerminalInfo } from "@shared/types";
+import { busRoutes, subwayStations } from "@/data/terminalPresets";
 
 interface TerminalCardProps {
   terminal: TerminalInfo;
@@ -16,6 +17,76 @@ export function TerminalCard({ terminal }: TerminalCardProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const { setTerminalPower, updateTerminal } = useTerminalStore();
   const { success, error: showError } = useToast();
+  const transitType =
+    terminal.transitType ??
+    (terminal.terminalId.startsWith("B") ? "bus" : "subway");
+  const isSubway = transitType === "subway";
+  const stationOptions = isSubway ? subwayStations : busRoutes;
+  const currentOption = isSubway
+    ? subwayStations.find(
+        (station) =>
+          station.entryTerminalId === terminal.terminalId ||
+          station.exitTerminalId === terminal.terminalId
+      )
+    : busRoutes.find(
+        (route) =>
+          route.entryTerminalId === terminal.terminalId ||
+          route.exitTerminalId === terminal.terminalId
+      );
+  const selectedOption = currentOption || stationOptions[0];
+
+  const resolveStationName = (type: "entry" | "exit") => {
+    if (!selectedOption) return terminal.station;
+    if (isSubway) {
+      return selectedOption.name;
+    }
+    return type === "entry"
+      ? selectedOption.entryStopName
+      : selectedOption.exitStopName;
+  };
+
+  const resolveLineName = () => {
+    if (!selectedOption) return terminal.line;
+    return isSubway ? selectedOption.line : selectedOption.routeName;
+  };
+
+  const handleStationChange = (id: string) => {
+    const nextOption = stationOptions.find((option) => option.id === id);
+    if (!nextOption) return;
+    const nextTerminalId =
+      terminal.type === "entry"
+        ? nextOption.entryTerminalId
+        : nextOption.exitTerminalId;
+    const nextStationName = isSubway
+      ? nextOption.name
+      : terminal.type === "entry"
+      ? nextOption.entryStopName
+      : nextOption.exitStopName;
+    const nextLineName = isSubway ? nextOption.line : nextOption.routeName;
+
+    updateTerminal(terminal.id, {
+      terminalId: nextTerminalId,
+      station: nextStationName,
+      line: nextLineName,
+    });
+  };
+
+  const handleTypeChange = (type: "entry" | "exit") => {
+    if (!selectedOption) return;
+    const nextTerminalId =
+      type === "entry"
+        ? selectedOption.entryTerminalId
+        : selectedOption.exitTerminalId;
+    const nextStationName = resolveStationName(type);
+    const nextLineName = resolveLineName();
+
+    updateTerminal(terminal.id, {
+      type,
+      terminalId: nextTerminalId,
+      station: nextStationName,
+      line: nextLineName,
+    });
+  };
 
   const handlePowerToggle = async () => {
     setIsProcessing(true);
@@ -33,6 +104,7 @@ export function TerminalCard({ terminal }: TerminalCardProps) {
       const response = await tcpClient.sendCommand({
         type: commandType,
         terminalId: terminal.terminalId,
+        transitType: terminal.transitType,
       });
 
       if (response.success) {
@@ -65,6 +137,7 @@ export function TerminalCard({ terminal }: TerminalCardProps) {
       const response = await tcpClient.sendCommand({
         type: "echo-test",
         terminalId: terminal.terminalId,
+        transitType: terminal.transitType,
       });
 
       if (response.success) {
@@ -99,6 +172,7 @@ export function TerminalCard({ terminal }: TerminalCardProps) {
         terminalId: terminal.terminalId,
         terminalType: terminal.type, // 'entry' 또는 'exit'
         station: terminal.station, // 역 이름 (예: '홍대입구역')
+        transitType: terminal.transitType,
       });
 
       if (response.success) {
@@ -133,6 +207,7 @@ export function TerminalCard({ terminal }: TerminalCardProps) {
         terminalId: terminal.terminalId,
         terminalType: terminal.type, // 'entry' 또는 'exit'
         station: terminal.station, // 역 이름 (예: '홍대입구역')
+        transitType: terminal.transitType,
       });
 
       if (response.success) {
@@ -162,6 +237,9 @@ export function TerminalCard({ terminal }: TerminalCardProps) {
             <h3 className="text-lg font-semibold text-foreground">
               {terminal.name}
             </h3>
+            <span className="px-2 py-0.5 text-xs font-medium rounded bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+              {isSubway ? "지하철" : "버스"}
+            </span>
             <span
               className={`px-2 py-0.5 text-xs font-medium rounded ${
                 terminal.type === "entry"
@@ -175,6 +253,11 @@ export function TerminalCard({ terminal }: TerminalCardProps) {
           <div className="space-y-1">
             {terminal.line && (
               <p className="text-sm text-muted-foreground">{terminal.line}</p>
+            )}
+            {terminal.station && (
+              <p className="text-sm text-muted-foreground">
+                {isSubway ? "역" : "정류장"}: {terminal.station}
+              </p>
             )}
             <p className="text-xs font-mono text-muted-foreground">
               Terminal ID:{" "}
@@ -205,6 +288,48 @@ export function TerminalCard({ terminal }: TerminalCardProps) {
               {terminal.isConnected ? "연결됨" : "연결 안 됨"}
             </span>
           </div>
+        </div>
+      </div>
+
+      {/* 위치/승하차 선택 */}
+      <div className="space-y-2 mb-4">
+        <div>
+          <label className="block text-xs font-medium mb-1">
+            {isSubway ? "역 선택" : "정류장 선택"}
+          </label>
+          <select
+            value={selectedOption?.id || ""}
+            onChange={(event) => handleStationChange(event.target.value)}
+            disabled={isProcessing}
+            className="w-full px-2 py-2 text-sm border rounded bg-background"
+          >
+            {isSubway &&
+              subwayStations.map((station) => (
+                <option key={station.id} value={station.id}>
+                  {station.line ? `${station.name} (${station.line})` : station.name}
+                </option>
+              ))}
+            {!isSubway &&
+              busRoutes.map((route) => (
+                <option key={route.id} value={route.id}>
+                  {route.routeName} · {route.entryStopName} ↔ {route.exitStopName}
+                </option>
+              ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium mb-1">승차/하차</label>
+          <select
+            value={terminal.type}
+            onChange={(event) =>
+              handleTypeChange(event.target.value as "entry" | "exit")
+            }
+            disabled={isProcessing}
+            className="w-full px-2 py-2 text-sm border rounded bg-background"
+          >
+            <option value="entry">승차</option>
+            <option value="exit">하차</option>
+          </select>
         </div>
       </div>
 

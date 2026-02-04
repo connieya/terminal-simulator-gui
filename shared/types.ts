@@ -18,6 +18,7 @@ export type TerminalType = 'entry' | 'exit' // entry: 승차, exit: 하차
 // 단말기 정보
 export type TerminalInfo = {
   id: string
+  transitType?: 'subway' | 'bus' // 단말기 구분 (지하철/버스)
   terminalId: string // Terminal ID (예: "T001", "T002")
   name: string // 예: "2호선 홍대입구역"
   line?: string // 예: "2호선"
@@ -44,6 +45,7 @@ export type TerminalCommand = {
   type: TerminalCommandType
   terminalId?: string // 단말기 ID (선택적)
   terminalType?: 'entry' | 'exit' // 승차/하차 구분 (sync 명령어용)
+  transitType?: 'subway' | 'bus' // 지하철/버스 구분 (선택적)
   station?: string // 역 이름 (sync 명령어용)
   cardType?: 'transport' | 'credit' | 'debit'
   cardData?: string
