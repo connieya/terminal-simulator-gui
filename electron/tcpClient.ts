@@ -82,16 +82,17 @@ export class TcpClient {
   }
 
   /**
-   * 역 이름을 영어 소문자로 변환 (config 파일 형식에 맞춤)
+   * 역 이름을 영어 소문자로 변환 (config 파일 형식에 맞춤).
+   * 매핑 실패 시 한글이 그대로 나가지 않도록 terminalId 기반으로만 fallback.
    */
   private getStationKey(station?: string): string {
     if (!station) return "";
 
     const stationMap: Record<string, string> = {
       서울역: "seoul",
-      강남역: "gangnam",
+      강남역: "gangnam_2line",
       종로3가역: "jongno3ga",
-      신도림역: "sindorim",
+      신도림역: "sindorim_2line",
       홍대입구역: "hongdae",
       합정역: "hapjeong",
       시청: "sicheong",
@@ -108,9 +109,17 @@ export class TcpClient {
       "경희대의료원.경희여중고": "kyunghee",
       서대문문화체육회관입구: "seodaemun",
       가좌역3번출구: "gajwa",
+      신당: "sindang",
+      사당: "sadang",
+      왕십리: "wangsimni",
+      잠실: "jamsil",
+      대림: "daerim",
     };
 
-    return stationMap[station] || station.toLowerCase().replace(/\s+/g, "_");
+    const key = stationMap[station] ?? stationMap[station.trim()];
+    if (key) return key;
+    // 매핑 실패 시 한글을 그대로 반환하지 않음 (Java preset 키는 영문만 사용)
+    return "";
   }
 
   /**
@@ -148,22 +157,30 @@ export class TcpClient {
           | undefined;
 
         let stationKey = "";
-
         if (command.station) {
-          stationKey = this.getStationKey(command.station);
-        } else if (terminalId) {
+          const fromStation = this.getStationKey(command.station);
+          if (fromStation && !/[\u0080-\uFFFF]/.test(fromStation)) stationKey = fromStation;
+        }
+        if (!stationKey && terminalId) {
           const match = terminalId.match(/^M-([A-Z0-9]+)-[EX]\d+$/);
           if (match) {
             const stationCode = match[1];
             const codeToName: Record<string, string> = {
               SEOUL: "seoul",
               GANGNAM: "gangnam",
+              GANGNAM2: "gangnam_2line",
               JONGNO3GA: "jongno3ga",
               SINDORIM: "sindorim",
+              SINDORIM2: "sindorim_2line",
               HONGDAE: "hongdae",
               HAPJEONG: "hapjeong",
               SICHEONG: "sicheong",
               EULJIRO3GA: "euljiro3ga",
+              SINDANG: "sindang",
+              SADANG: "sadang",
+              WANGSIMNI: "wangsimni",
+              JAMSIL: "jamsil",
+              DAERIM: "daerim",
             };
             stationKey = codeToName[stationCode] || stationCode.toLowerCase();
           }
@@ -192,7 +209,7 @@ export class TcpClient {
         if (command.presetKey && String(command.presetKey).trim()) {
           return `authorization-tps ${String(command.presetKey).trim()}`;
         }
-        // 이하: presetKey 없을 때 기존 로직
+        // 이하: presetKey 없을 때 기존 로직 (station → terminalId 순으로 시도, 한글 preset 이름 방지)
         const cardTerminalId = command.terminalId || "";
         const cardTerminalType = command.terminalType as
           | "entry"
@@ -200,22 +217,30 @@ export class TcpClient {
           | undefined;
 
         let cardStationKey = "";
-
         if (command.station) {
-          cardStationKey = this.getStationKey(command.station);
-        } else if (cardTerminalId) {
+          const fromStation = this.getStationKey(command.station);
+          if (fromStation && !/[\u0080-\uFFFF]/.test(fromStation)) cardStationKey = fromStation;
+        }
+        if (!cardStationKey && cardTerminalId) {
           const match = cardTerminalId.match(/^M-([A-Z0-9]+)-[EX]\d+$/);
           if (match) {
             const stationCode = match[1];
             const codeToName: Record<string, string> = {
               SEOUL: "seoul",
               GANGNAM: "gangnam",
+              GANGNAM2: "gangnam_2line",
               JONGNO3GA: "jongno3ga",
               SINDORIM: "sindorim",
+              SINDORIM2: "sindorim_2line",
               HONGDAE: "hongdae",
               HAPJEONG: "hapjeong",
               SICHEONG: "sicheong",
               EULJIRO3GA: "euljiro3ga",
+              SINDANG: "sindang",
+              SADANG: "sadang",
+              WANGSIMNI: "wangsimni",
+              JAMSIL: "jamsil",
+              DAERIM: "daerim",
             };
             cardStationKey =
               codeToName[stationCode] || stationCode.toLowerCase();

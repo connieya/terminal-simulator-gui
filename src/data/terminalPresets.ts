@@ -21,6 +21,12 @@ export type BusRouteOption = {
   exitPresetKey: string
 }
 
+/**
+ * 지하철 역 목록. TerminalConfig.json journeyPresets 키와 1:1 대응해야 함.
+ * - 2호선 역 중 TerminalConfig에 subway_in_XXX_2line / subway_out_XXX_2line 이 있으면
+ *   id는 XXX_2line, terminalId는 M-XXX2-E01/X01, stationId는 해당 journeyLog 값 사용.
+ *   예: 강남역(2호선)→gangnam_2line/M-GANGNAM2-*, 신도림역(2호선)→sindorim_2line/M-SINDORIM2-*
+ */
 export const subwayStations: SubwayStationOption[] = [
   {
     id: 'seoul',
@@ -31,12 +37,12 @@ export const subwayStations: SubwayStationOption[] = [
     exitTerminalId: 'M-SEOUL-X01',
   },
   {
-    id: 'gangnam',
+    id: 'gangnam_2line',
     name: '강남역',
     line: '2호선',
-    stationId: '1214',
-    entryTerminalId: 'M-GANGNAM-E01',
-    exitTerminalId: 'M-GANGNAM-X01',
+    stationId: '0222',
+    entryTerminalId: 'M-GANGNAM2-E01',
+    exitTerminalId: 'M-GANGNAM2-X01',
   },
   {
     id: 'jongno3ga',
@@ -47,12 +53,12 @@ export const subwayStations: SubwayStationOption[] = [
     exitTerminalId: 'M-JONGNO3GA-X01',
   },
   {
-    id: 'sindorim',
+    id: 'sindorim_2line',
     name: '신도림역',
     line: '2호선',
-    stationId: '1023',
-    entryTerminalId: 'M-SINDORIM-E01',
-    exitTerminalId: 'M-SINDORIM-X01',
+    stationId: '0234',
+    entryTerminalId: 'M-SINDORIM2-E01',
+    exitTerminalId: 'M-SINDORIM2-X01',
   },
   {
     id: 'hongdae',
@@ -109,6 +115,46 @@ export const subwayStations: SubwayStationOption[] = [
     stationId: '0225',
     entryTerminalId: 'M-BANGBAE-E01',
     exitTerminalId: 'M-BANGBAE-X01',
+  },
+  {
+    id: 'sindang',
+    name: '신당',
+    line: '2호선',
+    stationId: '0206',
+    entryTerminalId: 'M-SINDANG-E01',
+    exitTerminalId: 'M-SINDANG-X01',
+  },
+  {
+    id: 'sadang',
+    name: '사당',
+    line: '2호선',
+    stationId: '0226',
+    entryTerminalId: 'M-SADANG-E01',
+    exitTerminalId: 'M-SADANG-X01',
+  },
+  {
+    id: 'wangsimni',
+    name: '왕십리',
+    line: '2호선',
+    stationId: '0208',
+    entryTerminalId: 'M-WANGSIMNI-E01',
+    exitTerminalId: 'M-WANGSIMNI-X01',
+  },
+  {
+    id: 'jamsil',
+    name: '잠실',
+    line: '2호선',
+    stationId: '0216',
+    entryTerminalId: 'M-JAMSIL-E01',
+    exitTerminalId: 'M-JAMSIL-X01',
+  },
+  {
+    id: 'daerim',
+    name: '대림',
+    line: '2호선',
+    stationId: '0233',
+    entryTerminalId: 'M-DAERIM-E01',
+    exitTerminalId: 'M-DAERIM-X01',
   },
 ]
 

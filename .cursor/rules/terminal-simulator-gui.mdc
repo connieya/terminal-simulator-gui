@@ -87,11 +87,15 @@
 
 ## 명령어 변환 로직
 `tcpClient.ts`의 `commandToCliString()` 메서드에서 GUI 명령어를 Java Terminal Simulator CLI 명령어로 변환:
-- `card_tap` → `authorization-tps subway_{in|out}_{역이름}`
-- `sync` → `sync-tms subway_{in|out}_{역이름}`
-- `signon` → `signon-tps`
-- `signoff` → `signoff-tps`
-- 등등...
+- `card_tap` → `authorization-tps [presetKey]` (예: `authorization-tps subway_in_sindorim_2line`)
+- `sync` → `sync-tms [presetKey]`
+- presetKey는 `src/data/terminalPresets.ts`의 역 id와 승차/하차로 조합 (`subway_{in|out}_{id}`)
+
+## 역/호선과 preset 매핑 규칙 (TerminalConfig.json 동기화)
+- 역 목록은 `terminal-simulator/pos-simulator/.../TerminalConfig.json`의 `journeyPresets`와 1:1 대응해야 함.
+- **2호선 역**: TerminalConfig에 `subway_in_XXX_2line` / `subway_out_XXX_2line` 이 있으면 반드시 `id: 'XXX_2line'`, `terminalId: M-XXX2-E01/X01`, 해당 `journeyLog`의 stationId 사용.
+  - 예: 강남역(2호선) → `gangnam_2line`, M-GANGNAM2-* / 신도림역(2호선) → `sindorim_2line`, M-SINDORIM2-*
+- TerminalConfig에 역/호선 preset이 추가·변경되면 `src/data/terminalPresets.ts`와 `electron/tcpClient.ts`의 getStationKey/codeToName을 함께 수정.
 
 ## 개발 모드 실행
 ```bash

@@ -64,20 +64,54 @@ export class TcpClient {
         }
     }
     /**
-     * 역 이름을 영어 소문자로 변환 (config 파일 형식에 맞춤)
+     * 역 이름을 영어 소문자로 변환 (config 파일 형식에 맞춤).
+     * 매핑 실패 시 한글이 그대로 나가지 않도록 terminalId 기반으로만 fallback.
      */
     getStationKey(station) {
         if (!station)
             return "";
         const stationMap = {
             서울역: "seoul",
-            강남역: "gangnam",
+            강남역: "gangnam_2line",
             종로3가역: "jongno3ga",
             신도림역: "sindorim",
             홍대입구역: "hongdae",
             합정역: "hapjeong",
+            시청: "sicheong",
+            시청역: "sicheong",
+            을지로3가: "euljiro3ga",
+            을지로3가역: "euljiro3ga",
+            한양대: "hanyangdae",
+            교대: "gyodae",
+            방배: "bangbae",
+            도봉산역: "dobongsan",
+            영등포역: "yeongdeungpo",
+            "동대문역.흥인지문": "dongdaemun",
+            장한평역3번출구: "janghanpyeong",
+            "경희대의료원.경희여중고": "kyunghee",
+            서대문문화체육회관입구: "seodaemun",
+            가좌역3번출구: "gajwa",
+            신당: "sindang",
+            사당: "sadang",
+            왕십리: "wangsimni",
+            잠실: "jamsil",
+            대림: "daerim",
         };
-        return stationMap[station] || station.toLowerCase().replace(/\s+/g, "_");
+        const key = stationMap[station] ?? stationMap[station.trim()];
+        if (key)
+            return key;
+        // 매핑 실패 시 한글을 그대로 반환하지 않음 (Java preset 키는 영문만 사용)
+        return "";
+    }
+    /**
+     * 단말기 타입을 기준으로 노선 구분(지하철/버스) 결정
+     */
+    resolveTransitPrefix(command) {
+        if (command.transitType === "bus" || command.transitType === "subway") {
+            return command.transitType;
+        }
+        const terminalId = command.terminalId || "";
+        return terminalId.startsWith("B") ? "bus" : "subway";
     }
     /**
      * 명령어를 CLI 문자열로 변환
@@ -90,30 +124,39 @@ export class TcpClient {
                 return "signoff-tps";
             case "echo-test":
                 return "echo-test-tps";
-            case "sync":
-                // sync 명령어는 terminalId와 type 정보가 필요함
+            case "sync": {
+                // presetKey가 있으면 그대로 사용 (TerminalConfig.json journeyPresets 키와 일치)
+                if (command.presetKey && String(command.presetKey).trim()) {
+                    return `sync-tms ${String(command.presetKey).trim()}`;
+                }
+                // 이하: presetKey 없을 때 기존 로직 (station/terminalId로 조합)
                 const terminalId = command.terminalId || "";
                 const terminalType = command.terminalType;
-                // Terminal ID에서 역 이름 추출 (예: M-SEOUL-E01 -> seoul)
-                // 또는 command에서 station 정보 사용
                 let stationKey = "";
                 if (command.station) {
-                    // station 필드가 있으면 사용
-                    stationKey = this.getStationKey(command.station);
+                    const fromStation = this.getStationKey(command.station);
+                    if (fromStation && !/[\u0080-\uFFFF]/.test(fromStation))
+                        stationKey = fromStation;
                 }
-                else if (terminalId) {
-                    // Terminal ID에서 역 이름 추출 (M-{역이름}-E01 형식)
+                if (!stationKey && terminalId) {
                     const match = terminalId.match(/^M-([A-Z0-9]+)-[EX]\d+$/);
                     if (match) {
                         const stationCode = match[1];
-                        // 역 코드를 역 이름으로 매핑
                         const codeToName = {
                             SEOUL: "seoul",
                             GANGNAM: "gangnam",
+                            GANGNAM2: "gangnam_2line",
                             JONGNO3GA: "jongno3ga",
                             SINDORIM: "sindorim",
                             HONGDAE: "hongdae",
                             HAPJEONG: "hapjeong",
+                            SICHEONG: "sicheong",
+                            EULJIRO3GA: "euljiro3ga",
+                            SINDANG: "sindang",
+                            SADANG: "sadang",
+                            WANGSIMNI: "wangsimni",
+                            JAMSIL: "jamsil",
+                            DAERIM: "daerim",
                         };
                         stationKey = codeToName[stationCode] || stationCode.toLowerCase();
                     }
@@ -121,6 +164,7 @@ export class TcpClient {
                 if (!stationKey) {
                     throw new Error("Station information is required for sync command");
                 }
+                const transitPrefix = this.resolveTransitPrefix(command);
                 const inOut = terminalType === "entry"
                     ? "in"
                     : terminalType === "exit"
@@ -130,26 +174,41 @@ export class TcpClient {
                             : terminalId?.includes("-X")
                                 ? "out"
                                 : "in";
-                return `sync-tms subway_${inOut}_${stationKey}`;
-            case "card_tap":
-                // 카드 탭 명령어: authorization-tps subway_in_{역이름} 또는 authorization-tps subway_out_{역이름}
+                return `sync-tms ${transitPrefix}_${inOut}_${stationKey}`;
+            }
+            case "card_tap": {
+                // presetKey가 있으면 그대로 사용 (TerminalConfig.json journeyPresets 키와 일치)
+                if (command.presetKey && String(command.presetKey).trim()) {
+                    return `authorization-tps ${String(command.presetKey).trim()}`;
+                }
+                // 이하: presetKey 없을 때 기존 로직 (station → terminalId 순으로 시도, 한글 preset 이름 방지)
                 const cardTerminalId = command.terminalId || "";
                 const cardTerminalType = command.terminalType;
                 let cardStationKey = "";
                 if (command.station) {
-                    cardStationKey = this.getStationKey(command.station);
+                    const fromStation = this.getStationKey(command.station);
+                    if (fromStation && !/[\u0080-\uFFFF]/.test(fromStation))
+                        cardStationKey = fromStation;
                 }
-                else if (cardTerminalId) {
+                if (!cardStationKey && cardTerminalId) {
                     const match = cardTerminalId.match(/^M-([A-Z0-9]+)-[EX]\d+$/);
                     if (match) {
                         const stationCode = match[1];
                         const codeToName = {
                             SEOUL: "seoul",
                             GANGNAM: "gangnam",
+                            GANGNAM2: "gangnam_2line",
                             JONGNO3GA: "jongno3ga",
                             SINDORIM: "sindorim",
                             HONGDAE: "hongdae",
                             HAPJEONG: "hapjeong",
+                            SICHEONG: "sicheong",
+                            EULJIRO3GA: "euljiro3ga",
+                            SINDANG: "sindang",
+                            SADANG: "sadang",
+                            WANGSIMNI: "wangsimni",
+                            JAMSIL: "jamsil",
+                            DAERIM: "daerim",
                         };
                         cardStationKey =
                             codeToName[stationCode] || stationCode.toLowerCase();
@@ -158,6 +217,7 @@ export class TcpClient {
                 if (!cardStationKey) {
                     throw new Error("Station information is required for card_tap command");
                 }
+                const cardTransitPrefix = this.resolveTransitPrefix(command);
                 const cardInOut = cardTerminalType === "entry"
                     ? "in"
                     : cardTerminalType === "exit"
@@ -167,7 +227,8 @@ export class TcpClient {
                             : cardTerminalId?.includes("-X")
                                 ? "out"
                                 : "in";
-                return `authorization-tps subway_${cardInOut}_${cardStationKey}`;
+                return `authorization-tps ${cardTransitPrefix}_${cardInOut}_${cardStationKey}`;
+            }
             case "ping":
                 return "ping-tps";
             case "status":
@@ -175,7 +236,7 @@ export class TcpClient {
             case "reset":
                 return "reset-tps";
             default:
-                throw new Error(`Unknown command type: ${command.type}`);
+                throw new Error(`Unknown command type: ${String(command.type)}`);
         }
     }
     /**
@@ -321,7 +382,7 @@ export class TcpClient {
                     };
                     this.emitResponse(response);
                 }
-                catch (error) {
+                catch {
                     // JSON이 아니면 텍스트 응답으로 처리
                     // 여러 줄 응답을 버퍼에 모음
                     this.responseBuffer.push(line.trim());
