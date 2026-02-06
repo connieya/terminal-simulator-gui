@@ -5,52 +5,32 @@ import type { SubwayStationOption } from '@/data/terminalPresets'
 const LINE1_COLOR = '#0052A4' // 1호선 파랑
 const LINE2_COLOR = '#00A84D' // 2호선 초록
 
-interface SubwayMapProps {
-  /** 노선도에서 역 클릭 시 갱신할 단말기 id (지하철만 유효) */
-  selectedTerminalId: string | null
-}
-
 /**
  * 지하철 노선도 컴포넌트
  * subwayStations 기반으로 1호선/2호선을 노선표 스타일로 표시하고,
- * 역 클릭 시 선택된 단말기의 역 정보를 해당 역으로 갱신한다.
+ * 역 클릭 시 지하철 단말기(1개)의 역 정보를 해당 역으로 갱신한다. 단말기의 승차/하차 타입에 따라 terminalId 반영.
  */
-export function SubwayMap({ selectedTerminalId }: SubwayMapProps) {
+export function SubwayMap() {
   const { terminals, updateTerminal } = useTerminalStore()
-  const selectedTerminal = selectedTerminalId
-    ? terminals.find((t) => t.id === selectedTerminalId)
-    : null
-  const subwayEntry = terminals.find((t) => t.id === 'terminal-subway-entry')
-  const subwayExit = terminals.find((t) => t.id === 'terminal-subway-exit')
+  const subwayTerminal = terminals.find((t) => t.transitType === 'subway')
   const { '1호선': line1Stations, '2호선': line2Stations } = getStationsByLine()
   const allStations = line1Stations.concat(line2Stations)
 
-  const entryStationId = subwayEntry
+  const currentStationId = subwayTerminal
     ? allStations.find(
         (s) =>
-          s.entryTerminalId === subwayEntry.terminalId ||
-          s.exitTerminalId === subwayEntry.terminalId
-      )?.id
-    : null
-  const exitStationId = subwayExit
-    ? allStations.find(
-        (s) =>
-          s.entryTerminalId === subwayExit.terminalId ||
-          s.exitTerminalId === subwayExit.terminalId
+          s.entryTerminalId === subwayTerminal.terminalId ||
+          s.exitTerminalId === subwayTerminal.terminalId
       )?.id
     : null
 
   const handleStationClick = (station: SubwayStationOption) => {
-    if (
-      !selectedTerminal ||
-      selectedTerminal.transitType !== 'subway'
-    )
-      return
+    if (!subwayTerminal || subwayTerminal.transitType !== 'subway') return
     const terminalId =
-      selectedTerminal.type === 'entry'
+      subwayTerminal.type === 'entry'
         ? station.entryTerminalId
         : station.exitTerminalId
-    updateTerminal(selectedTerminal.id, {
+    updateTerminal(subwayTerminal.id, {
       terminalId,
       station: station.name,
       line: station.line ?? undefined,
@@ -58,10 +38,8 @@ export function SubwayMap({ selectedTerminalId }: SubwayMapProps) {
   }
 
   const stationRole = (station: SubwayStationOption) => {
-    const id = station.id
-    if (id === entryStationId) return 'entry'
-    if (id === exitStationId) return 'exit'
-    return null
+    if (station.id !== currentStationId) return null
+    return subwayTerminal?.type === 'entry' ? 'entry' : 'exit'
   }
 
   return (

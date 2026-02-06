@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useTerminalStore } from '@/stores/terminalStore'
 import { TerminalCard } from './TerminalCard'
 import { SubwayMap } from './SubwayMap'
@@ -7,17 +6,13 @@ import { JourneyPanel } from './JourneyPanel'
 /**
  * 단말기 목록 컴포넌트
  * 왼쪽: 지하철 노선도(상단) + 단말기 카드(하단), 오른쪽: 여정 패널
- * 노선도 역 클릭 시 선택된 단말기의 역이 갱신됨. 단말기에서는 드롭다운으로 승차/하차만 선택.
+ * 지하철 단말기 1개에서 드롭다운으로 승차/하차 선택. 노선도 역 클릭 시 해당 단말기 역 갱신.
  */
 export function TerminalList() {
-  const [selectedTerminalId, setSelectedTerminalId] = useState<string | null>(
-    'terminal-subway-entry'
-  )
   const { terminals } = useTerminalStore()
-  const subwayEntry = terminals.find((t) => t.id === 'terminal-subway-entry')
-  const subwayExit = terminals.find((t) => t.id === 'terminal-subway-exit')
+  const subwayTerminal = terminals.find((t) => t.transitType === 'subway')
   const busTerminal = terminals.find((t) => t.transitType === 'bus')
-  const displayTerminals = [subwayEntry, subwayExit, busTerminal].filter(
+  const displayTerminals = [subwayTerminal, busTerminal].filter(
     (t): t is (typeof terminals)[number] => Boolean(t)
   )
 
@@ -33,21 +28,14 @@ export function TerminalList() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         {/* 왼쪽: 노선도(상단) + 단말기(하단) */}
         <div className="flex flex-col gap-4">
-          <SubwayMap selectedTerminalId={selectedTerminalId} />
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <SubwayMap />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {displayTerminals.map((terminal) => (
               <TerminalCard
                 key={terminal.id}
                 terminal={terminal}
-                isSelected={
-                  terminal.transitType === 'subway' &&
-                  terminal.id === selectedTerminalId
-                }
-                onSelect={
-                  terminal.transitType === 'subway'
-                    ? () => setSelectedTerminalId(terminal.id)
-                    : undefined
-                }
+                isSelected={terminal.transitType === 'subway'}
+                onSelect={undefined}
               />
             ))}
           </div>
@@ -60,11 +48,7 @@ export function TerminalList() {
 
         {/* 오른쪽: 여정 패널 */}
         <div className="flex flex-col gap-4">
-          <JourneyPanel
-            selectedTerminalId={selectedTerminalId}
-            onSelectEntry={() => setSelectedTerminalId('terminal-subway-entry')}
-            onSelectExit={() => setSelectedTerminalId('terminal-subway-exit')}
-          />
+          <JourneyPanel />
         </div>
       </div>
     </div>
