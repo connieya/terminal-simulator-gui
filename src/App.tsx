@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { TerminalList } from './components/TerminalList'
-import { ConnectionSettings } from './components/ConnectionSettings'
 import { ToastProvider } from './contexts/ToastContext'
 import { LeftTabs } from './components/LeftTabs'
 import './App.css'
@@ -12,19 +11,16 @@ function App() {
     <ToastProvider>
       <div className="min-h-screen bg-background flex">
         <LeftTabs activeTab={activeTab} onChange={setActiveTab} />
-        <main className="flex-1 p-8">
+        <main className="flex-1 p-4">
           {activeTab === 'simulator' ? (
-            <>
-              <div className="max-w-7xl mx-auto">
-                <h1 className="text-3xl font-bold mb-6">
-                  EMV 교통 단말기 시뮬레이터
-                </h1>
-                <TerminalList />
-              </div>
-              <ConnectionSettings />
-            </>
+            <div className="flex flex-col gap-4">
+              <h1 className="text-3xl font-bold">
+                EMV 교통 단말기 시뮬레이터
+              </h1>
+              <TerminalList />
+            </div>
           ) : (
-            <div className="max-w-3xl mx-auto space-y-4">
+            <div className="space-y-4">
               <h1 className="text-3xl font-bold">EMV 직접 거래</h1>
               <div className="border rounded-lg p-6 bg-card space-y-2">
                 <h2 className="text-lg font-semibold">준비 중</h2>
