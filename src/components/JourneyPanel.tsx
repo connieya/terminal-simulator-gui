@@ -1,45 +1,60 @@
-import { useTerminalStore } from '@/stores/terminalStore'
-import { subwayStations } from '@/data/terminalPresets'
+import { useJourneyStore } from '@/stores/journeyStore'
 
 /**
  * 지하철 여정 패널
- * 지하철 단말기 1개의 현재 설정을 "현재: OO역 승차" 또는 "현재: OO역 하차" 형태로 표시.
+ * 카드 탭 성공 시 기록된 지하철 여정을 시간순으로 표시한다.
  */
 export function JourneyPanel() {
-  const { terminals } = useTerminalStore()
-  const subwayTerminal = terminals.find((t) => t.transitType === 'subway')
+  const journeys = useJourneyStore((state) => state.journeys)
 
-  const station = subwayTerminal
-    ? subwayStations.find(
-        (s) =>
-          s.entryTerminalId === subwayTerminal.terminalId ||
-          s.exitTerminalId === subwayTerminal.terminalId
-      )
-    : null
-  const stationName = station?.name ?? subwayTerminal?.station ?? '—'
-  const isEntry = subwayTerminal?.type === 'entry'
+  const formatTime = (timestamp: number) => {
+    const date = new Date(timestamp)
+    const hh = String(date.getHours()).padStart(2, '0')
+    const mm = String(date.getMinutes()).padStart(2, '0')
+    const ss = String(date.getSeconds()).padStart(2, '0')
+    return `${hh}:${mm}:${ss}`
+  }
 
   return (
     <div className="rounded-lg border bg-card p-4">
       <h3 className="mb-3 text-sm font-semibold text-foreground">지하철 여정</h3>
-      <div className="flex flex-wrap items-center gap-2">
-        <span
-          className={`inline-flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm font-medium ${
-            isEntry
-              ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-              : 'border-green-500 bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-          }`}
-        >
-          <span className="text-muted-foreground">현재</span>
-          <span className="font-semibold">{stationName}</span>
-          <span className="text-muted-foreground">
-            {isEntry ? '승차' : '하차'}
-          </span>
-        </span>
+      <div className="flex flex-col gap-2">
+        {journeys.length === 0 ? (
+          <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+            카드 탭 이후 여정이 표시됩니다.
+          </div>
+        ) : (
+          <div className="max-h-[360px] space-y-2 overflow-auto pr-1">
+            {journeys.map((journey) => (
+              <div
+                key={journey.id}
+                className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">
+                    {formatTime(journey.timestamp)}
+                  </span>
+                  <span className="font-semibold">{journey.station}</span>
+                  {journey.line && (
+                    <span className="text-xs text-muted-foreground">
+                      ({journey.line})
+                    </span>
+                  )}
+                </div>
+                <span
+                  className={`rounded px-2 py-0.5 text-xs font-medium ${
+                    journey.type === 'entry'
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                      : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                  }`}
+                >
+                  {journey.type === 'entry' ? '승차' : '하차'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">
-        단말기에서 승차/하차를 선택한 뒤 노선도에서 역을 클릭하면 역이 설정됩니다.
-      </p>
     </div>
   )
 }

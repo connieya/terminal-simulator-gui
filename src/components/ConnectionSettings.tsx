@@ -3,10 +3,18 @@ import { tcpClient } from "@/utils/tcpClient";
 import type { TcpConnectionConfig } from "@shared/types";
 import { DEFAULT_TCP_CONFIG } from "@shared/types";
 
+type ConnectionSettingsVariant = "floating" | "inline";
+
+interface ConnectionSettingsProps {
+  variant?: ConnectionSettingsVariant;
+}
+
 /**
- * TCP 연결 설정 컴포넌트 (백그라운드 설정)
+ * TCP 연결 설정 컴포넌트
+ * - floating: 화면 우하단 고정
+ * - inline: 패널 내 배치
  */
-export function ConnectionSettings() {
+export function ConnectionSettings({ variant = "floating" }: ConnectionSettingsProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [host, setHost] = useState(DEFAULT_TCP_CONFIG.host);
@@ -89,8 +97,13 @@ export function ConnectionSettings() {
     }
   };
 
+  const containerClass =
+    variant === "floating"
+      ? "fixed bottom-4 right-4 bg-card border rounded-lg shadow-lg p-4 min-w-[280px]"
+      : "bg-card border rounded-lg shadow-sm p-4 w-full";
+
   return (
-    <div className="fixed bottom-4 right-4 bg-card border rounded-lg shadow-lg p-4 min-w-[280px]">
+    <div className={containerClass}>
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center justify-between mb-2"

@@ -9,6 +9,7 @@ import {
   type BusRouteOption,
   type SubwayStationOption,
 } from "@/data/terminalPresets";
+import { useJourneyStore } from "@/stores/journeyStore";
 
 interface TerminalCardProps {
   terminal: TerminalInfo;
@@ -30,6 +31,7 @@ export function TerminalCard({
   const [isProcessing, setIsProcessing] = useState(false);
   const { setTerminalPower, updateTerminal } = useTerminalStore();
   const { success, error: showError } = useToast();
+  const addJourney = useJourneyStore((state) => state.addJourney);
   const transitType =
     terminal.transitType ??
     (terminal.terminalId.startsWith("B") ? "bus" : "subway");
@@ -238,6 +240,19 @@ export function TerminalCard({
 
       if (response.success) {
         success("카드 탭 성공!");
+        if (terminal.transitType === "subway") {
+          const stationName =
+            (isSubway && selectedOption
+              ? (selectedOption as SubwayStationOption).name
+              : terminal.station) || "알 수 없음";
+          addJourney({
+            station: stationName,
+            line: terminal.line,
+            type: terminal.type,
+            terminalId: terminal.terminalId,
+            timestamp: Date.now(),
+          });
+        }
         updateTerminal(terminal.id, {
           lastCommandTime: Date.now(),
         });
