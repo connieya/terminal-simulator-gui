@@ -138,8 +138,13 @@ export class TcpClient {
    */
   private commandToCliString(command: TerminalCommand): string {
     switch (command.type) {
-      case "signon":
+      case "signon": {
+        // presetKey가 있으면 signon-tps [preset] (Java TpsSignOnFunction에서 preset 지원)
+        if (command.presetKey && String(command.presetKey).trim()) {
+          return `signon-tps ${String(command.presetKey).trim()}`;
+        }
         return "signon-tps";
+      }
       case "signoff":
         return "signoff-tps";
       case "echo-test":

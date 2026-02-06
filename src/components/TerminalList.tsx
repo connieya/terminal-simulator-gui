@@ -3,7 +3,6 @@ import { TerminalCard } from './TerminalCard'
 import { SubwayMap } from './SubwayMap'
 import { JourneyPanel } from './JourneyPanel'
 import { TcpLogPanel } from './TcpLogPanel'
-import { ConnectionSettings } from './ConnectionSettings'
 
 /**
  * 단말기 목록 컴포넌트
@@ -46,9 +45,8 @@ export function TerminalList() {
         <JourneyPanel />
       </div>
 
-      {/* 오른쪽: 연결 설정 + TCP 로그 (md~xl에서 오른쪽 열 하단, xl에서 세 번째 열) */}
+      {/* 오른쪽: TCP 로그 (연결 상태/해제는 TcpLogPanel 내부) */}
       <div className="flex min-w-0 flex-col gap-4 md:col-start-2 md:row-start-2 xl:col-start-auto xl:row-start-auto">
-        <ConnectionSettings variant="inline" />
         <div className="min-h-0 flex-1">
           <TcpLogPanel />
         </div>

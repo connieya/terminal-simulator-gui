@@ -3,6 +3,7 @@ import { useTerminalStore } from "@/stores/terminalStore";
 import { tcpClient } from "@/utils/tcpClient";
 import { useToast } from "@/contexts/ToastContext";
 import type { TerminalInfo } from "@shared/types";
+import { DEFAULT_TCP_CONFIG } from "@shared/types";
 import {
   busRoutes,
   subwayStations,
@@ -117,20 +118,28 @@ export function TerminalCard({
   const handlePowerToggle = async () => {
     setIsProcessing(true);
     try {
-      // TCP 연결 확인
-      const isConnected = await tcpClient.isConnected();
-      if (!isConnected) {
-        showError(
-          "Terminal Simulator에 연결되지 않았습니다. 먼저 연결해주세요."
-        );
-        return;
+      const commandType = terminal.isPoweredOn ? "signoff" : "signon";
+
+      // 전원 켜기 시: TCP 미연결이면 먼저 연결 후 signon
+      if (commandType === "signon") {
+        const isConnected = await tcpClient.isConnected();
+        if (!isConnected) {
+          try {
+            await tcpClient.connect(DEFAULT_TCP_CONFIG);
+          } catch {
+            showError(
+              "Terminal Simulator에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요."
+            );
+            return;
+          }
+        }
       }
 
-      const commandType = terminal.isPoweredOn ? "signoff" : "signon";
       const response = await tcpClient.sendCommand({
         type: commandType,
         terminalId: terminal.terminalId,
         transitType: terminal.transitType,
+        presetKey: commandType === "signon" ? getPresetKey() : undefined,
       });
 
       if (response.success) {
