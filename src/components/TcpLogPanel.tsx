@@ -36,7 +36,7 @@ export function TcpLogPanel() {
   }, [logs.length])
 
   return (
-    <div className="flex h-full flex-col rounded-lg border bg-card p-4">
+    <div className="flex min-h-0 flex-1 flex-col rounded-lg border bg-card p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">TCP 통신 로그</h3>
         <button

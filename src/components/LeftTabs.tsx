@@ -20,7 +20,7 @@ const tabs: Array<{ id: TabKey; label: string; description: string }> = [
 
 export function LeftTabs({ activeTab, onChange }: LeftTabsProps) {
   return (
-    <aside className="w-64 border-r bg-card p-4 space-y-3">
+    <aside className="w-64 shrink-0 border-r bg-card p-4 space-y-3">
       <div className="pb-2 border-b">
         <h2 className="text-lg font-semibold">기능 모드</h2>
         <p className="text-xs text-muted-foreground">

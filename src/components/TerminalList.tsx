@@ -20,9 +20,9 @@ export function TerminalList() {
   )
 
   return (
-    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.8fr)]">
+    <div className="grid min-w-0 grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.8fr)]">
       {/* 왼쪽: 노선도(상단) + 단말기(하단) */}
-      <div className="flex flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-4">
         <SubwayMap />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {displayTerminals.map((terminal) => (
@@ -41,15 +41,17 @@ export function TerminalList() {
         )}
       </div>
 
-      {/* 가운데: 여정 패널 */}
-      <div className="flex flex-col gap-4">
+      {/* 가운데: 여정 패널 (md~xl에서 오른쪽 열 상단, xl에서 중간 열) */}
+      <div className="flex min-w-0 flex-col gap-4">
         <JourneyPanel />
       </div>
 
-      {/* 오른쪽: 연결 설정 + TCP 로그 */}
-      <div className="flex flex-col gap-4">
+      {/* 오른쪽: 연결 설정 + TCP 로그 (md~xl에서 오른쪽 열 하단, xl에서 세 번째 열) */}
+      <div className="flex min-w-0 flex-col gap-4 md:col-start-2 md:row-start-2 xl:col-start-auto xl:row-start-auto">
         <ConnectionSettings variant="inline" />
-        <TcpLogPanel />
+        <div className="min-h-0 flex-1">
+          <TcpLogPanel />
+        </div>
       </div>
     </div>
   )

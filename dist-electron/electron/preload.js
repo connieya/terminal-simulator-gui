@@ -1,3 +1,5 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
 const { contextBridge, ipcRenderer } = require('electron');
 // Electron Preload Script
 // Renderer와 Main Process 간의 안전한 통신을 설정합니다
@@ -17,4 +19,3 @@ contextBridge.exposeInMainWorld('electronAPI', {
         tapCard: (cardData) => ipcRenderer.invoke('tcp:tapCard', cardData),
     },
 });
-export {};

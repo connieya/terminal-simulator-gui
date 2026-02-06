@@ -9,9 +9,9 @@ function App() {
 
   return (
     <ToastProvider>
-      <div className="min-h-screen bg-background flex">
+      <div className="flex min-h-screen bg-background overflow-hidden">
         <LeftTabs activeTab={activeTab} onChange={setActiveTab} />
-        <main className="flex-1 p-4">
+        <main className="min-w-0 flex-1 overflow-auto p-4">
           {activeTab === 'simulator' ? (
             <div className="flex flex-col gap-4">
               <h1 className="text-3xl font-bold">
