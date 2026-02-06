@@ -10,16 +10,25 @@ interface TerminalStore {
   setTerminalConnected: (id: string, isConnected: boolean) => void
 }
 
-// 기본 단말기 데이터 (지하철/버스 2개만 유지)
+// 기본 단말기 데이터 (지하철 승차/하차 각 1개 + 버스 1개)
 const defaultTerminals: Omit<TerminalInfo, 'isPoweredOn' | 'isConnected'>[] = [
   {
-    id: 'terminal-subway',
+    id: 'terminal-subway-entry',
     transitType: 'subway',
     terminalId: 'M-SEOUL-E01',
-    name: '지하철 단말기',
+    name: '지하철 승차 단말기',
     line: '1호선',
     station: '서울역',
     type: 'entry', // 승차
+  },
+  {
+    id: 'terminal-subway-exit',
+    transitType: 'subway',
+    terminalId: 'M-SINDORIM2-X01',
+    name: '지하철 하차 단말기',
+    line: '2호선',
+    station: '신도림역',
+    type: 'exit', // 하차
   },
   {
     id: 'terminal-bus',

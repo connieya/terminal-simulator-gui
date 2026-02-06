@@ -32,14 +32,16 @@ terminal-simulator-gui/
 │   ├── main.tsx              # React 진입점
 │   ├── components/           # UI 컴포넌트
 │   │   ├── LeftTabs.tsx      # 좌측 탭 (연동/직접거래)
-│   │   ├── TerminalList.tsx  # 단말기 카드 목록
+│   │   ├── TerminalList.tsx  # 연동 단말기 레이아웃 (노선도 | 여정+카드)
+│   │   ├── SubwayMap.tsx     # 지하철 노선도 (1호선/2호선, 역 클릭 시 단말기 설정)
+│   │   ├── JourneyPanel.tsx  # 지하철 여정 패널 (승차역 → 하차역)
 │   │   ├── TerminalCard.tsx  # 개별 단말기 카드 (정보·액션)
 │   │   ├── CardTapButton.tsx # 카드 탭 시뮬레이션 버튼
 │   │   ├── ConnectionSettings.tsx  # TCP 연결 설정 (호스트/포트)
 │   │   ├── TcpConnectionPanel.tsx   # 연결 상태·연결/해제 UI
 │   │   └── Toast.tsx         # 토스트 알림
 │   ├── data/
-│   │   └── terminalPresets.ts # 지하철/버스 선택 옵션
+│   │   └── terminalPresets.ts # 지하철/버스 선택 옵션, getStationsByLine (노선도용)
 │   ├── contexts/
 │   │   └── ToastContext.tsx  # 전역 토스트 컨텍스트
 │   ├── stores/
@@ -78,10 +80,13 @@ terminal-simulator-gui/
 ### 3. React 앱 (`src/`)
 
 - **App**: 좌측 탭(`LeftTabs`)으로 **연동 모드/직접 거래 모드** 화면 분기.
-- **TerminalList / TerminalCard**: 지하철/버스 2개 단말기만 표시, 역/정류장·승차/하차 선택 UI 제공.
+- **TerminalList**: 연동 단말기 페이지. 왼쪽에 **SubwayMap**(지하철 노선도), 오른쪽 상단에 **JourneyPanel**(승차역 → 하차역 여정), 오른쪽 하단에 **TerminalCard** 그리드(지하철 승차/하차/버스 3개).
+- **SubwayMap**: `subwayStations` 기반 1호선·2호선 노선표 UI. 역 클릭 시 선택된 승차/하차 단말기 설정.
+- **JourneyPanel**: 현재 설정된 지하철 여정 "OO역 승차 → OO역 하차" 표시, 승차/하차 영역 클릭 시 노선도 편집 모드 전환.
+- **TerminalCard**: 개별 단말기 카드. 역/정류장·승차/하차 선택, 전원·Sync·카드 탭 등.
 - **ConnectionSettings / TcpConnectionPanel**: TCP 호스트·포트 설정, 연결/해제, 상태 표시.
-- **stores/terminalStore**: Zustand로 단말기 CRUD, 전원/연결 상태.
-- **data/terminalPresets**: `TerminalConfig.json` 기반의 지하철/버스 옵션 데이터.
+- **stores/terminalStore**: Zustand로 단말기 목록(지하철 승차·하차·버스 3개), 전원/연결 상태.
+- **data/terminalPresets**: `TerminalConfig.json` 기반 지하철/버스 옵션, `getStationsByLine()` 노선별 역 목록(노선도 배치용).
 - **utils/tcpClient**: Renderer에서 `window.electronAPI.tcp` 호출만 담당 (실제 소켓은 Main의 `tcpClient.ts`).
 
 ---

@@ -12,13 +12,21 @@ import {
 
 interface TerminalCardProps {
   terminal: TerminalInfo;
+  /** 지하철 단말기일 때 노선도 클릭으로 갱신할 대상인지 여부 */
+  isSelected?: boolean;
+  /** 지하철 단말기일 때 카드 선택 시 노선도 클릭 대상으로 지정 */
+  onSelect?: () => void;
 }
 
 /**
  * 단말기 카드 컴포넌트
  * 각 교통 단말기의 정보와 전원 on/off 기능을 제공
  */
-export function TerminalCard({ terminal }: TerminalCardProps) {
+export function TerminalCard({
+  terminal,
+  isSelected = false,
+  onSelect,
+}: TerminalCardProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const { setTerminalPower, updateTerminal } = useTerminalStore();
   const { success, error: showError } = useToast();
@@ -247,7 +255,11 @@ export function TerminalCard({ terminal }: TerminalCardProps) {
   };
 
   return (
-    <div className="border rounded-lg p-4 bg-card hover:shadow-lg transition-shadow">
+    <div
+      className={`border rounded-lg p-4 bg-card transition-shadow ${
+        isSelected ? "ring-2 ring-primary shadow-lg" : "hover:shadow-lg"
+      }`}
+    >
       {/* 단말기 헤더 */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
@@ -267,6 +279,22 @@ export function TerminalCard({ terminal }: TerminalCardProps) {
             >
               {terminal.type === "entry" ? "승차" : "하차"}
             </span>
+            {isSubway && onSelect && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelect?.();
+                }}
+                className={`text-xs px-2 py-1 rounded border ${
+                  isSelected
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-muted/50 text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {isSelected ? "역 설정됨" : "노선도에서 역 선택"}
+              </button>
+            )}
           </div>
           <div className="space-y-1">
             {terminal.line && (
@@ -319,32 +347,27 @@ export function TerminalCard({ terminal }: TerminalCardProps) {
         </div>
       </div>
 
-      {/* 위치/승하차 선택 */}
+      {/* 위치/승하차 선택: 지하철은 역은 노선도 클릭으로 설정, 승차/하차만 드롭다운 */}
       <div className="space-y-2 mb-4">
-        <div>
-          <label className="block text-xs font-medium mb-1">
-            {isSubway ? "역 선택" : "정류장 선택"}
-          </label>
-          <select
-            value={selectedOption?.id || ""}
-            onChange={(event) => handleStationChange(event.target.value)}
-            disabled={isProcessing}
-            className="w-full px-2 py-2 text-sm border rounded bg-background"
-          >
-            {isSubway &&
-              subwayStations.map((station) => (
-                <option key={station.id} value={station.id}>
-                  {station.line ? `${station.name} (${station.line})` : station.name}
-                </option>
-              ))}
-            {!isSubway &&
-              busRoutes.map((route) => (
+        {!isSubway && (
+          <div>
+            <label className="block text-xs font-medium mb-1">
+              정류장 선택
+            </label>
+            <select
+              value={selectedOption?.id || ""}
+              onChange={(event) => handleStationChange(event.target.value)}
+              disabled={isProcessing}
+              className="w-full px-2 py-2 text-sm border rounded bg-background"
+            >
+              {busRoutes.map((route) => (
                 <option key={route.id} value={route.id}>
                   {route.routeName} · {route.entryStopName} ↔ {route.exitStopName}
                 </option>
               ))}
-          </select>
-        </div>
+            </select>
+          </div>
+        )}
         <div>
           <label className="block text-xs font-medium mb-1">승차/하차</label>
           <select

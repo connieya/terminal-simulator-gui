@@ -158,6 +158,23 @@ export const subwayStations: SubwayStationOption[] = [
   },
 ]
 
+/** 노선별 역 목록 (노선도 배치용). 1호선: 배열 순서, 2호선: 순환 순서(시청 기준) */
+export function getStationsByLine(): {
+  '1호선': SubwayStationOption[]
+  '2호선': SubwayStationOption[]
+} {
+  const line1 = subwayStations.filter((s) => s.line === '1호선')
+  // 2호선 순환 순서 (시청 → 을지로3가 → … → 신도림 → … → 시청 방향, stationId 기준)
+  const line2Order = [
+    'sicheong', 'euljiro3ga', 'sindang', 'hanyangdae', 'wangsimni', 'jamsil',
+    'gangnam_2line', 'gyodae', 'bangbae', 'sadang', 'daerim', 'sindorim_2line',
+    'hapjeong', 'hongdae',
+  ]
+  const line2Map = new Map(subwayStations.filter((s) => s.line === '2호선').map((s) => [s.id, s]))
+  const line2 = line2Order.map((id) => line2Map.get(id)).filter((s): s is SubwayStationOption => Boolean(s))
+  return { '1호선': line1, '2호선': line2 }
+}
+
 export const busRoutes: BusRouteOption[] = [
   {
     id: 'dobo_to_yeongdeungpo',
