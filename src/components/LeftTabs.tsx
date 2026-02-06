@@ -19,7 +19,7 @@ const tabs: Array<{ id: TabKey; path: string; label: string; description: string
 
 export function LeftTabs() {
   return (
-    <aside className="w-64 shrink-0 border-r bg-card p-4 space-y-3">
+    <aside className="w-64 shrink-0 border-r bg-card p-6 space-y-4">
       <div className="pb-2 border-b">
         <h2 className="text-lg font-semibold">기능 모드</h2>
         <p className="text-xs text-muted-foreground">

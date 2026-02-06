@@ -19,7 +19,7 @@ export function TerminalList() {
   )
 
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.8fr)]">
+    <div className="grid min-w-0 grid-cols-1 gap-6 md:gap-8 md:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.8fr)]">
       {/* 왼쪽: 노선도(상단) + 단말기(하단) */}
       <div className="flex min-w-0 flex-col gap-4">
         <SubwayMap />
