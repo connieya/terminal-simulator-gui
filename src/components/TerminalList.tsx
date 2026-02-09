@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import { useTerminalStore } from '@/stores/terminalStore'
 import { TerminalCard } from './TerminalCard'
 import { SubwayMap } from './SubwayMap'
 import { JourneyPanel } from './JourneyPanel'
 import { TcpLogPanel } from './TcpLogPanel'
+import { EmvTransactionDetailModal } from './EmvTransactionDetailModal'
+import type { TerminalResponse } from '@shared/types'
 
 /**
  * 단말기 목록 컴포넌트
@@ -18,7 +21,22 @@ export function TerminalList() {
     (t): t is (typeof terminals)[number] => Boolean(t)
   )
 
+  const [transactionModal, setTransactionModal] = useState<{
+    open: boolean
+    message: string
+    success: boolean
+  }>({ open: false, message: '', success: false })
+
+  const handleCardTapComplete = (response: TerminalResponse) => {
+    setTransactionModal({
+      open: true,
+      message: response.message ?? '',
+      success: response.success,
+    })
+  }
+
   return (
+    <>
     <div className="grid min-w-0 grid-cols-1 gap-6 md:gap-8 md:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.8fr)]">
       {/* 왼쪽: 노선도(상단) + 단말기(하단) */}
       <div className="flex min-w-0 flex-col gap-4">
@@ -30,6 +48,7 @@ export function TerminalList() {
               terminal={terminal}
               isSelected={terminal.transitType === 'subway'}
               onSelect={undefined}
+              onCardTapComplete={handleCardTapComplete}
             />
           ))}
         </div>
@@ -52,6 +71,16 @@ export function TerminalList() {
         </div>
       </div>
     </div>
+
+      <EmvTransactionDetailModal
+        open={transactionModal.open}
+        onClose={() =>
+          setTransactionModal((prev) => ({ ...prev, open: false }))
+        }
+        logText={transactionModal.message}
+        success={transactionModal.success}
+      />
+    </>
   )
 }
 

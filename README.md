@@ -40,9 +40,11 @@ terminal-simulator-gui/
 │   │   ├── ConnectionSettings.tsx  # TCP 연결 설정 (호스트/포트)
 │   │   ├── TcpLogPanel.tsx   # TCP 통신 로그 패널
 │   │   ├── TcpConnectionPanel.tsx   # 연결 상태·연결/해제 UI
+│   │   ├── EmvTransactionDetailModal.tsx  # 카드 탭 EMV 상세 표시 모달 (단계별 설명)
 │   │   └── Toast.tsx         # 토스트 알림
 │   ├── data/
-│   │   └── terminalPresets.ts # 지하철/버스 선택 옵션, getStationsByLine (노선도용)
+│   │   ├── terminalPresets.ts # 지하철/버스 선택 옵션, getStationsByLine (노선도용)
+│   │   └── emvStepDescriptions.ts  # EMV 단계별 한글 설명
 │   ├── contexts/
 │   │   └── ToastContext.tsx  # 전역 토스트 컨텍스트
 │   ├── stores/
@@ -50,7 +52,8 @@ terminal-simulator-gui/
 │   │   ├── journeyStore.ts   # 카드 탭 기반 지하철 여정 기록
 │   │   └── tcpLogStore.ts    # TCP 통신 로그 기록
 │   ├── utils/
-│   │   └── tcpClient.ts      # Renderer용: window.electronAPI.tcp 호출 래퍼
+│   │   ├── tcpClient.ts      # Renderer용: window.electronAPI.tcp 호출 래퍼
+│   │   └── emvLogParser.ts   # EMV 트랜잭션 로그 단계별 파싱
 │   ├── lib/
 │   │   └── utils.ts          # 유틸 (cn 등)
 │   └── styles/
@@ -89,11 +92,14 @@ terminal-simulator-gui/
 - **TerminalCard**: 개별 단말기 카드. 지하철은 승차/하차 드롭다운만(역은 노선도 클릭), 버스는 정류장·승차/하차 선택, 전원·Sync·카드 탭 등.
 - **ConnectionSettings / TcpConnectionPanel**: TCP 호스트·포트 설정, 연결/해제, 상태 표시.
 - **TcpLogPanel**: terminal-simulator와 주고받은 TCP 통신 로그 표시.
+- **EmvTransactionDetailModal**: 카드 탭 응답 수신 후 EMV 트랜잭션 상세를 TCP 로그와 별도로 모달에 표시. 단계별 아코디언과 한글 설명(emvStepDescriptions) 사용.
 - **stores/terminalStore**: Zustand로 단말기 목록(지하철 1개·버스 1개), 전원/연결 상태.
 - **stores/journeyStore**: 카드 탭 시 지하철 여정 로그를 저장.
 - **stores/tcpLogStore**: TCP 통신 로그를 저장.
 - **data/terminalPresets**: `TerminalConfig.json` 기반 지하철/버스 옵션, `getStationsByLine()` 노선별 역 목록(노선도 배치용).
+- **data/emvStepDescriptions**: EMV 단계 제목별 한글 설명. 모달에서 단계별 설명 표시에 사용.
 - **utils/tcpClient**: Renderer에서 `window.electronAPI.tcp` 호출만 담당 (실제 소켓은 Main의 `tcpClient.ts`).
+- **utils/emvLogParser**: 카드 탭 응답 메시지를 `===== ... =====` 구간으로 파싱해 단계 배열로 반환. 모달에서 아코디언 표시에 사용.
 
 ---
 

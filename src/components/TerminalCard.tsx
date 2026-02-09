@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTerminalStore } from "@/stores/terminalStore";
 import { tcpClient } from "@/utils/tcpClient";
 import { useToast } from "@/contexts/ToastContext";
-import type { TerminalInfo } from "@shared/types";
+import type { TerminalInfo, TerminalResponse } from "@shared/types";
 import { DEFAULT_TCP_CONFIG } from "@shared/types";
 import {
   busRoutes,
@@ -18,6 +18,8 @@ interface TerminalCardProps {
   isSelected?: boolean;
   /** 지하철 단말기일 때 카드 선택 시 노선도 클릭 대상으로 지정 */
   onSelect?: () => void;
+  /** 카드 탭 응답 수신 후 EMV 상세 모달 등을 열 때 사용 */
+  onCardTapComplete?: (response: TerminalResponse) => void;
 }
 
 /**
@@ -28,6 +30,7 @@ export function TerminalCard({
   terminal,
   isSelected = false,
   onSelect,
+  onCardTapComplete,
 }: TerminalCardProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const { setTerminalPower, updateTerminal } = useTerminalStore();
@@ -268,6 +271,7 @@ export function TerminalCard({
       } else {
         showError(`카드 탭 실패: ${response.message || "Unknown error"}`);
       }
+      onCardTapComplete?.(response);
     } catch (error) {
       console.error("Card tap failed:", error);
       showError(
