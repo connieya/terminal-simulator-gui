@@ -23,8 +23,8 @@ export const useJourneyStore = create<JourneyStore>((set) => ({
   journeys: [],
   addJourney: (entry) =>
     set((state) => {
-      const next = [{ ...entry, id: createId() }, ...state.journeys]
-      return { journeys: next.slice(0, MAX_JOURNEYS) }
+      const next = [...state.journeys, { ...entry, id: createId() }]
+      return { journeys: next.slice(-MAX_JOURNEYS) }
     }),
   clearJourneys: () => set({ journeys: [] }),
 }))
