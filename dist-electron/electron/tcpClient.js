@@ -309,19 +309,22 @@ export class TcpClient {
     }
     /**
      * deny-list 에러 여부 판단
+     * Java DenyListManager는 ALLOWED여도 "[DenyList Check]", "DenySet" 등을 로그로 출력하므로,
+     * 응답 전체에서 "denylist"만 보면 오탐이 난다. 실제 거부(ERROR + deny 관련 문구)일 때만 true.
      */
     isDenyListError(lines) {
-        const denyListKeywords = [
-            "deny list",
-            "deny-list",
-            "denylist",
-            "Card is in deny list",
-            "Transaction declined",
+        const lastLine = lines[lines.length - 1]?.trim() ?? "";
+        const isErrorResponse = lastLine.toUpperCase().startsWith("ERROR") || lastLine === "ERROR";
+        if (!isErrorResponse)
+            return false;
+        const fullText = lines.join("\n").toLowerCase();
+        const denyListErrorPhrases = [
+            "card is in deny list",
+            "transaction declined",
             "거부된 카드",
             "승차 불가",
         ];
-        const fullText = lines.join("\n").toLowerCase();
-        return denyListKeywords.some((keyword) => fullText.toLowerCase().includes(keyword.toLowerCase()));
+        return denyListErrorPhrases.some((phrase) => fullText.includes(phrase.toLowerCase()));
     }
     /**
      * 현재 실행 중인 명령 타입 반환
