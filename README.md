@@ -34,6 +34,7 @@ terminal-simulator-gui/
 │   │   ├── LeftTabs.tsx      # 좌측 탭 (연동/직접거래)
 │   │   ├── TerminalList.tsx  # 연동 단말기 레이아웃 (노선도+단말기 | 여정 | TCP 로그)
 │   │   ├── SubwayMap.tsx     # 지하철 노선도 (1호선/2호선, 역 클릭 시 단말기 설정)
+│   │   ├── BusMap.tsx        # 버스 노선도 (노선 클릭 시 버스 단말기 정류장/노선 설정)
 │   │   ├── JourneyPanel.tsx  # 지하철 여정 패널 (카드 탭 기록)
 │   │   ├── TerminalCard.tsx  # 개별 단말기 카드 (정보·액션)
 │   │   ├── CardTapButton.tsx # 카드 탭 시뮬레이션 버튼
@@ -86,8 +87,9 @@ terminal-simulator-gui/
 ### 3. React 앱 (`src/`)
 
 - **App**: 좌측 탭(`LeftTabs`)으로 **연동 모드/직접 거래 모드** 화면 분기.
-- **TerminalList**: 연동 단말기 페이지. **왼쪽**에 지하철 노선도+단말기, **가운데**에 지하철 여정, **오른쪽**에 TCP 통신 로그.
+- **TerminalList**: 연동 단말기 페이지. **왼쪽**에 지하철 노선도+버스 노선도+단말기, **가운데**에 지하철 여정, **오른쪽**에 TCP 통신 로그.
 - **SubwayMap**: `subwayStations` 기반 1호선·2호선 노선표 UI. 역 클릭 시 지하철 단말기(1개) 역 설정.
+- **BusMap**: `busRoutes` 기반 버스 노선 목록. 노선 클릭 시 버스 단말기(1개) 정류장·노선 설정.
 - **JourneyPanel**: 카드 탭 성공 시 기록된 지하철 여정을 시간순으로 표시.
 - **TerminalCard**: 개별 단말기 카드. 지하철은 승차/하차 드롭다운만(역은 노선도 클릭), 버스는 정류장·승차/하차 선택, 전원·Sync·카드 탭 등.
 - **ConnectionSettings / TcpConnectionPanel**: TCP 호스트·포트 설정, 연결/해제, 상태 표시.

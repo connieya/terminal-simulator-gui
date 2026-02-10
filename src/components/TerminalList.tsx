@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTerminalStore } from '@/stores/terminalStore'
 import { TerminalCard } from './TerminalCard'
 import { SubwayMap } from './SubwayMap'
+import { BusMap } from './BusMap'
 import { JourneyPanel } from './JourneyPanel'
 import { TcpLogPanel } from './TcpLogPanel'
 import { EmvTransactionDetailModal } from './EmvTransactionDetailModal'
@@ -41,6 +42,7 @@ export function TerminalList() {
       {/* 왼쪽: 노선도(상단) + 단말기(하단) */}
       <div className="flex min-w-0 flex-col gap-4">
         <SubwayMap />
+        <BusMap />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {displayTerminals.map((terminal) => (
             <TerminalCard
