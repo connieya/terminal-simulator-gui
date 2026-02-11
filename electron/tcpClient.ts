@@ -284,7 +284,8 @@ export class TcpClient {
   }
 
   /**
-   * Java Terminal Simulator에 CLI 명령 전송
+   * Java Terminal Simulator에 CLI 또는 GUI JSON 명령 전송
+   * signon/sync/card_tap 이고 journeyLog+terminalId 있으면 JSON 전송 (TerminalConfig 미참조)
    */
   async sendCommand(command: TerminalCommand): Promise<TerminalResponse> {
     if (!this.socket || this.socket.readyState !== "open") {
@@ -292,11 +293,22 @@ export class TcpClient {
     }
 
     return new Promise((resolve, reject) => {
-      // CLI 명령어 문자열로 변환
-      const cliCommand = this.commandToCliString(command);
-      const message = cliCommand + "\n"; // 줄바꿈으로 메시지 구분
+      const hasTerminalId = command.terminalId && String(command.terminalId).trim();
+      const hasJourneyLog = command.journeyLog && String(command.journeyLog).trim();
+      const useGuiJson =
+        (command.type === "signon" || command.type === "sync" || command.type === "card_tap") &&
+        hasTerminalId &&
+        (command.type === "signon" || hasJourneyLog); // signon은 terminalId만, sync/card_tap은 journeyLog 필요
 
-      console.log(`Sending CLI command: ${cliCommand}`);
+      const message = useGuiJson
+        ? JSON.stringify({
+            type: command.type,
+            terminalId: command.terminalId,
+            ...(hasJourneyLog ? { journeyLog: command.journeyLog } : {}),
+          }) + "\n"
+        : this.commandToCliString(command) + "\n";
+
+      console.log(useGuiJson ? `Sending GUI JSON: ${command.type}` : `Sending CLI command: ${message.trim()}`);
 
       const timeout = setTimeout(() => {
         reject(new Error("Command timeout"));

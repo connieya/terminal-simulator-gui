@@ -8,14 +8,27 @@ export type SubwayStationOption = {
   exitTerminalId: string
 }
 
-/** 노선 내 정류장 한 건 (정류장 드롭다운·preset 매핑용) */
+/** 노선 내 정류장 한 건 (정류장 드롭다운·GUI JSON 전송용) */
 export type BusStopOption = {
   id: string
   stopName: string
+  /** GUI→Simulator JSON 전송 시 사용 (TerminalConfig 미참조) */
+  entryJourneyLog?: string
+  exitJourneyLog?: string
   entryPresetKey: string
   exitPresetKey: string
   entryTerminalId: string
   exitTerminalId: string
+}
+
+/** 지하철 역의 journeyLog 문자열 생성 (SUBWAY,stationId,Z??,G01,IN/OUT, , , ) */
+export function getSubwayJourneyLog(
+  station: SubwayStationOption,
+  type: 'entry' | 'exit'
+): string {
+  const inOut = type === 'entry' ? 'IN' : 'OUT'
+  const zone = station.line === '1호선' ? 'Z01' : 'Z02'
+  return `SUBWAY,${station.stationId},${zone},G01,${inOut}, , , `
 }
 
 export type BusRouteOption = {

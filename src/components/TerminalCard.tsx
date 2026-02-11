@@ -7,6 +7,7 @@ import { DEFAULT_TCP_CONFIG } from "@shared/types";
 import {
   busRoutes,
   subwayStations,
+  getSubwayJourneyLog,
   type BusStopOption,
   type SubwayStationOption,
 } from "@/data/terminalPresets";
@@ -71,7 +72,17 @@ export function TerminalCard({
     return terminal.line ?? currentRoute?.routeName ?? "";
   };
 
-  /** TerminalConfig.json journeyPresets 키와 동일한 preset 이름 (sync/authorization-tps 인자로 사용) */
+  /** GUI→Simulator JSON 전송용 journeyLog (있으면 presetKey 대신 사용) */
+  const getJourneyLog = (): string | undefined => {
+    if (!selectedOption) return undefined;
+    if (isSubway) {
+      return getSubwayJourneyLog(selectedOption as SubwayStationOption, terminal.type);
+    }
+    const busStop = selectedOption as BusStopOption;
+    return terminal.type === "entry" ? busStop.entryJourneyLog : busStop.exitJourneyLog;
+  };
+
+  /** journeyLog 없을 때 CLI 폴백용 preset 키 */
   const getPresetKey = (): string => {
     if (!selectedOption) return "";
     if (isSubway) {
@@ -140,11 +151,12 @@ export function TerminalCard({
         }
       }
 
+      const journeyLog = getJourneyLog();
       const response = await tcpClient.sendCommand({
         type: commandType,
         terminalId: terminal.terminalId,
         transitType: terminal.transitType,
-        presetKey: commandType === "signon" ? getPresetKey() : undefined,
+        ...(journeyLog ? { journeyLog } : { presetKey: getPresetKey() }),
       });
 
       if (response.success) {
@@ -207,13 +219,14 @@ export function TerminalCard({
         return;
       }
 
+      const journeyLog = getJourneyLog();
       const response = await tcpClient.sendCommand({
         type: "sync",
         terminalId: terminal.terminalId,
         terminalType: terminal.type,
         station: terminal.station,
         transitType: terminal.transitType,
-        presetKey: getPresetKey(), // TerminalConfig journeyPresets 키와 동일하게 전달
+        ...(journeyLog ? { journeyLog } : { presetKey: getPresetKey() }),
       });
 
       if (response.success) {
@@ -243,13 +256,14 @@ export function TerminalCard({
         return;
       }
 
+      const journeyLog = getJourneyLog();
       const response = await tcpClient.sendCommand({
         type: "card_tap",
         terminalId: terminal.terminalId,
         terminalType: terminal.type,
         station: terminal.station,
         transitType: terminal.transitType,
-        presetKey: getPresetKey(), // TerminalConfig journeyPresets 키와 동일하게 전달
+        ...(journeyLog ? { journeyLog } : { presetKey: getPresetKey() }),
       });
 
       if (response.success) {

@@ -47,7 +47,9 @@ export type TerminalCommand = {
   terminalType?: 'entry' | 'exit' // 승차/하차 구분 (sync 명령어용)
   transitType?: 'subway' | 'bus' // 지하철/버스 구분 (선택적)
   station?: string // 역 이름 (sync 명령어용)
-  /** TerminalConfig.json journeyPresets 키와 동일한 preset 이름 (예: subway_in_sicheong). 있으면 이 값을 CLI 인자로 사용 */
+  /** GUI→Simulator JSON 전송 시 사용. 있으면 presetKey 대신 terminalId+journeyLog로 전송 */
+  journeyLog?: string
+  /** @deprecated GUI JSON 사용 시 불필요. CLI 경로용 preset 이름 */
   presetKey?: string
   cardType?: 'transport' | 'credit' | 'debit'
   cardData?: string
