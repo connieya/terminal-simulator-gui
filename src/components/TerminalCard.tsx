@@ -36,8 +36,16 @@ export function TerminalCard({
     (terminal.terminalId.startsWith("B") ? "bus" : "subway");
   const isSubway = transitType === "subway";
   const currentRoute =
-    !isSubway && terminal.line
-      ? busRoutes.find((r) => r.routeName === terminal.line) ?? null
+    !isSubway
+      ? (terminal.line
+          ? busRoutes.find((r) => r.routeName === terminal.line) ?? null
+          : busRoutes.find((r) =>
+              r.stops?.some(
+                (s) =>
+                  s.entryTerminalId === terminal.terminalId ||
+                  s.exitTerminalId === terminal.terminalId
+              )
+            ) ?? null)
       : null;
   const currentStop =
     currentRoute?.stops.find(

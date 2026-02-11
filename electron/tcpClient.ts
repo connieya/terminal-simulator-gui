@@ -214,12 +214,19 @@ export class TcpClient {
         if (command.presetKey && String(command.presetKey).trim()) {
           return `authorization-tps ${String(command.presetKey).trim()}`;
         }
-        // 이하: presetKey 없을 때 기존 로직 (station → terminalId 순으로 시도, 한글 preset 이름 방지)
+        // 이하: presetKey 없을 때 기존 로직 (지하철: station → terminalId로 cardStationKey 생성)
         const cardTerminalId = command.terminalId || "";
         const cardTerminalType = command.terminalType as
           | "entry"
           | "exit"
           | undefined;
+
+        // 버스 단말은 presetKey 또는 journeyLog(JSON)로만 처리. CLI 폴백은 지하철 전용.
+        if (cardTerminalId.startsWith("B-")) {
+          throw new Error(
+            "버스 카드 탭에는 노선·정류장 선택이 필요합니다. 정류장을 선택한 뒤 다시 시도해 주세요."
+          );
+        }
 
         let cardStationKey = "";
         if (command.station) {
