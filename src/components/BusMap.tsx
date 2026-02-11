@@ -4,51 +4,63 @@ import type { BusRouteOption } from '@/data/terminalPresets'
 
 const BUS_LINE_COLOR = '#E85D04'
 
+interface BusMapProps {
+  /** 통합 노선도 탭 내부에 넣을 때 true (제목·카드 래퍼 생략) */
+  embedded?: boolean
+}
+
 /**
  * 버스 노선도 컴포넌트
- * busRoutes 기반으로 노선을 표시하고, 노선 클릭 시 버스 단말기의 정류장/노선 정보를 갱신한다.
+ * 노선 클릭 시 단일 단말기의 정류장/노선 정보를 갱신한다. (transitType: 'bus'로 설정)
  */
-export function BusMap() {
-  const { terminals, updateTerminal } = useTerminalStore()
-  const busTerminal = terminals.find((t) => t.transitType === 'bus')
+export function BusMap({ embedded }: BusMapProps) {
+  const terminal = useTerminalStore((s) => s.terminals[0])
+  const updateTerminal = useTerminalStore((s) => s.updateTerminal)
 
-  const currentRouteId = busTerminal
-    ? busRoutes.find(
-        (r) =>
-          r.entryTerminalId === busTerminal.terminalId ||
-          r.exitTerminalId === busTerminal.terminalId
-      )?.id ?? null
-    : null
+  const currentRouteId =
+    terminal?.transitType === 'bus'
+      ? busRoutes.find(
+          (r) =>
+            r.entryTerminalId === terminal.terminalId ||
+            r.exitTerminalId === terminal.terminalId
+        )?.id ?? null
+      : null
 
   const handleRouteClick = (route: BusRouteOption) => {
-    if (!busTerminal || busTerminal.transitType !== 'bus') return
+    if (!terminal) return
     const terminalId =
-      busTerminal.type === 'entry' ? route.entryTerminalId : route.exitTerminalId
+      terminal.type === 'entry' ? route.entryTerminalId : route.exitTerminalId
     const station =
-      busTerminal.type === 'entry' ? route.entryStopName : route.exitStopName
-    updateTerminal(busTerminal.id, {
+      terminal.type === 'entry' ? route.entryStopName : route.exitStopName
+    updateTerminal(terminal.id, {
+      transitType: 'bus',
       terminalId,
       station,
       line: route.routeName,
     })
   }
 
+  const content = (
+    <div className="flex flex-col gap-2.5">
+      {busRoutes.map((route) => {
+        const isSelected = route.id === currentRouteId
+        return (
+          <RouteNode
+            key={route.id}
+            route={route}
+            isSelected={isSelected}
+            onClick={() => handleRouteClick(route)}
+          />
+        )
+      })}
+    </div>
+  )
+
+  if (embedded) return content
   return (
     <div className="rounded-lg border bg-card p-4">
       <h3 className="mb-3 text-sm font-semibold text-foreground">버스 노선도</h3>
-      <div className="flex flex-col gap-2">
-        {busRoutes.map((route) => {
-          const isSelected = route.id === currentRouteId
-          return (
-            <RouteNode
-              key={route.id}
-              route={route}
-              isSelected={isSelected}
-              onClick={() => handleRouteClick(route)}
-            />
-          )
-        })}
-      </div>
+      {content}
     </div>
   )
 }
@@ -64,23 +76,25 @@ function RouteNode({ route, isSelected, onClick }: RouteNodeProps) {
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left transition-colors hover:bg-muted/80 focus:outline-none focus:ring-2 focus:ring-primary"
+      className="flex w-full items-center gap-3 rounded-lg border-2 px-4 py-3 text-left transition-colors hover:bg-muted/70 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
       style={{
-        borderColor: isSelected ? BUS_LINE_COLOR : undefined,
-        backgroundColor: isSelected ? 'rgba(232, 93, 4, 0.08)' : undefined,
+        borderColor: isSelected ? BUS_LINE_COLOR : 'var(--border)',
+        backgroundColor: isSelected ? 'rgba(232, 93, 4, 0.1)' : undefined,
       }}
       title={`${route.routeName}: ${route.entryStopName} ↔ ${route.exitStopName}`}
     >
       <span
-        className="h-2 w-2 shrink-0 rounded-full"
+        className="h-2.5 w-2.5 shrink-0 rounded-full"
         style={{ backgroundColor: BUS_LINE_COLOR }}
       />
-      <span className="text-xs font-medium text-foreground">
-        {route.routeName}
-      </span>
-      <span className="text-xs text-muted-foreground">
-        {route.entryStopName} ↔ {route.exitStopName}
-      </span>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-semibold text-foreground">
+          {route.routeName}
+        </div>
+        <div className="text-xs text-muted-foreground mt-0.5">
+          {route.entryStopName} ↔ {route.exitStopName}
+        </div>
+      </div>
     </button>
   )
 }

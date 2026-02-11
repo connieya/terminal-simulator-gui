@@ -1,8 +1,8 @@
 import { useJourneyStore } from '@/stores/journeyStore'
 
 /**
- * 지하철 여정 패널
- * 카드 탭 성공 시 기록된 지하철 여정을 시간순으로 표시한다.
+ * 여정 패널
+ * 카드 탭 성공 시 기록된 승하차 여정(지하철/버스)을 시간순으로 표시한다.
  */
 export function JourneyPanel() {
   const journeys = useJourneyStore((state) => state.journeys)
@@ -17,7 +17,7 @@ export function JourneyPanel() {
 
   return (
     <div className="rounded-lg border bg-card p-4">
-      <h3 className="mb-3 text-sm font-semibold text-foreground">지하철 여정</h3>
+      <h3 className="mb-3 text-sm font-semibold text-foreground">여정</h3>
       <div className="flex flex-col gap-2">
         {journeys.length === 0 ? (
           <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">

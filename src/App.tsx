@@ -25,12 +25,22 @@ function App() {
     <ToastProvider>
       <div className="flex min-h-screen bg-background overflow-hidden">
         <LeftTabs />
-        <main className="min-w-0 flex-1 overflow-auto p-6 md:p-8">
-          <Routes>
-            <Route path="/" element={<Navigate to="/simulator" replace />} />
-            <Route path="/simulator" element={<TerminalList />} />
-            <Route path="/direct" element={<DirectTradePage />} />
-          </Routes>
+        <main className="min-w-0 flex-1 overflow-auto flex flex-col">
+          <header className="shrink-0 border-b border-border bg-card/50 px-6 py-4 md:px-8">
+            <h1 className="text-lg font-semibold text-foreground tracking-tight">
+              Terminal Simulator
+            </h1>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Open Loop EMV 교통 단말기 연동
+            </p>
+          </header>
+          <div className="flex-1 p-6 md:p-8">
+            <Routes>
+              <Route path="/" element={<Navigate to="/simulator" replace />} />
+              <Route path="/simulator" element={<TerminalList />} />
+              <Route path="/direct" element={<DirectTradePage />} />
+            </Routes>
+          </div>
         </main>
       </div>
     </ToastProvider>

@@ -31,12 +31,13 @@ terminal-simulator-gui/
 │   ├── App.tsx               # 루트: 좌측 탭 + 탭별 화면 분기
 │   ├── main.tsx              # React 진입점
 │   ├── components/           # UI 컴포넌트
-│   │   ├── LeftTabs.tsx      # 좌측 탭 (연동/직접거래)
+│   │   ├── LeftTabs.tsx       # 좌측 탭 (연동/직접거래)
 │   │   ├── TerminalList.tsx  # 연동 단말기 레이아웃 (노선도+단말기 | 여정 | TCP 로그)
-│   │   ├── SubwayMap.tsx     # 지하철 노선도 (1호선/2호선, 역 클릭 시 단말기 설정)
-│   │   ├── BusMap.tsx        # 버스 노선도 (노선 클릭 시 버스 단말기 정류장/노선 설정)
-│   │   ├── JourneyPanel.tsx  # 지하철 여정 패널 (카드 탭 기록)
-│   │   ├── TerminalCard.tsx  # 개별 단말기 카드 (정보·액션)
+│   │   ├── UnifiedRouteMap.tsx # 통합 노선도 (상단 선택: 지하철/버스, 지하철 시 1호선/2호선 → 선택한 내용만 표시)
+│   │   ├── SubwayMap.tsx     # 지하철 노선도 (line prop으로 1호선 또는 2호선만 표시 가능, 역 클릭 시 단일 단말기 설정)
+│   │   ├── BusMap.tsx        # 버스 노선 (노선 클릭 시 단일 단말기 정류장/노선 설정)
+│   │   ├── JourneyPanel.tsx  # 여정 패널 (카드 탭 기록, 지하철/버스 공통)
+│   │   ├── TerminalCard.tsx  # 단말기 카드 1개 (정보·액션, 노선도 클릭으로 모드 전환)
 │   │   ├── CardTapButton.tsx # 카드 탭 시뮬레이션 버튼
 │   │   ├── ConnectionSettings.tsx  # TCP 연결 설정 (호스트/포트)
 │   │   ├── TcpLogPanel.tsx   # TCP 통신 로그 패널
@@ -49,8 +50,8 @@ terminal-simulator-gui/
 │   ├── contexts/
 │   │   └── ToastContext.tsx  # 전역 토스트 컨텍스트
 │   ├── stores/
-│   │   ├── terminalStore.ts  # Zustand 단말기 목록·상태
-│   │   ├── journeyStore.ts   # 카드 탭 기반 지하철 여정 기록
+│   │   ├── terminalStore.ts  # Zustand 단말기 1대 상태 (노선도 클릭 시 데이터 갱신)
+│   │   ├── journeyStore.ts   # 카드 탭 기반 승하차 여정 기록 (지하철/버스 공통)
 │   │   └── tcpLogStore.ts    # TCP 통신 로그 기록
 │   ├── utils/
 │   │   ├── tcpClient.ts      # Renderer용: window.electronAPI.tcp 호출 래퍼
@@ -87,16 +88,17 @@ terminal-simulator-gui/
 ### 3. React 앱 (`src/`)
 
 - **App**: 좌측 탭(`LeftTabs`)으로 **연동 모드/직접 거래 모드** 화면 분기.
-- **TerminalList**: 연동 단말기 페이지. **왼쪽**에 지하철 노선도+버스 노선도+단말기, **가운데**에 지하철 여정, **오른쪽**에 TCP 통신 로그.
-- **SubwayMap**: `subwayStations` 기반 1호선·2호선 노선표 UI. 역 클릭 시 지하철 단말기(1개) 역 설정.
-- **BusMap**: `busRoutes` 기반 버스 노선 목록. 노선 클릭 시 버스 단말기(1개) 정류장·노선 설정.
-- **JourneyPanel**: 카드 탭 성공 시 기록된 지하철 여정을 시간순으로 표시.
-- **TerminalCard**: 개별 단말기 카드. 지하철은 승차/하차 드롭다운만(역은 노선도 클릭), 버스는 정류장·승차/하차 선택, 전원·Sync·카드 탭 등.
+- **TerminalList**: 연동 단말기 페이지. **왼쪽**에 통합 노선도(탭: 지하철/버스)+단말기 1대, **가운데**에 여정, **오른쪽**에 TCP 통신 로그.
+- **UnifiedRouteMap**: 노선도 한 패널. 상단에서 지하철/버스 선택, 지하철 선택 시 1호선/2호선 선택. 선택한 항목만 하단에 표시(지하철은 해당 노선 역만, 버스는 노선 목록). 노선/역 클릭 시 동일 단말기 데이터 갱신.
+- **SubwayMap**: `subwayStations` 기반 노선표 UI. `line` prop으로 1호선 또는 2호선만 표시 가능. 역 클릭 시 단일 단말기의 역 정보 갱신(transitType: subway).
+- **BusMap**: `busRoutes` 기반 버스 노선 목록. 노선 클릭 시 단일 단말기의 정류장·노선 갱신(transitType: bus).
+- **JourneyPanel**: 카드 탭 성공 시 기록된 승하차 여정(지하철/버스)을 시간순으로 표시.
+- **TerminalCard**: 단말기 1대 카드. 노선도에서 지하철 역 또는 버스 노선 클릭 시 현재 모드가 바뀌며, 지하철 모드일 때는 역은 노선도 클릭·승차/하차 드롭다운, 버스 모드일 때는 정류장·승차/하차 선택. 전원·Sync·카드 탭 등.
 - **ConnectionSettings / TcpConnectionPanel**: TCP 호스트·포트 설정, 연결/해제, 상태 표시.
 - **TcpLogPanel**: terminal-simulator와 주고받은 TCP 통신 로그 표시.
 - **EmvTransactionDetailModal**: 카드 탭 응답 수신 후 EMV 트랜잭션 상세를 TCP 로그와 별도로 모달에 표시. 단계별 아코디언과 한글 설명(emvStepDescriptions) 사용.
-- **stores/terminalStore**: Zustand로 단말기 목록(지하철 1개·버스 1개), 전원/연결 상태.
-- **stores/journeyStore**: 카드 탭 시 지하철 여정 로그를 저장.
+- **stores/terminalStore**: Zustand로 단말기 1대 상태. 노선도에서 지하철 역 또는 버스 노선 클릭 시 terminalId·station·line·transitType 등 갱신. 전원/연결 상태.
+- **stores/journeyStore**: 카드 탭 시 승하차 여정 로그를 저장(지하철/버스 공통).
 - **stores/tcpLogStore**: TCP 통신 로그를 저장.
 - **data/terminalPresets**: `TerminalConfig.json` 기반 지하철/버스 옵션, `getStationsByLine()` 노선별 역 목록(노선도 배치용).
 - **data/emvStepDescriptions**: EMV 단계 제목별 한글 설명. 모달에서 단계별 설명 표시에 사용.

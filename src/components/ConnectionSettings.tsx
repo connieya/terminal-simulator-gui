@@ -55,9 +55,9 @@ export function ConnectionSettings({ variant = "floating" }: ConnectionSettingsP
     setIsConnecting(true);
     try {
       const config: TcpConnectionConfig = {
+        ...DEFAULT_TCP_CONFIG,
         host,
         port: parseInt(port, 10),
-        ...DEFAULT_TCP_CONFIG,
       };
 
       console.log("Attempting to connect to:", config.host, config.port);
@@ -65,7 +65,7 @@ export function ConnectionSettings({ variant = "floating" }: ConnectionSettingsP
 
       // 연결 후 상태 확인 (약간의 지연 후)
       await new Promise((resolve) => setTimeout(resolve, 300)); // 잠시 대기
-      const connected = await checkConnection();
+      await checkConnection();
 
       // checkConnection이 상태를 업데이트하므로 다시 확인
       await new Promise((resolve) => setTimeout(resolve, 200));

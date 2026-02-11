@@ -63,9 +63,9 @@ export function TcpConnectionPanel() {
     setIsConnecting(true)
     try {
       const config: TcpConnectionConfig = {
+        ...DEFAULT_TCP_CONFIG,
         host,
         port: parseInt(port, 10),
-        ...DEFAULT_TCP_CONFIG,
       }
       await tcpClient.connect(config)
       await checkConnection()

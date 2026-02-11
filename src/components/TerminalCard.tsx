@@ -14,10 +14,6 @@ import { useJourneyStore } from "@/stores/journeyStore";
 
 interface TerminalCardProps {
   terminal: TerminalInfo;
-  /** 지하철 단말기일 때 노선도 클릭으로 갱신할 대상인지 여부 */
-  isSelected?: boolean;
-  /** 지하철 단말기일 때 카드 선택 시 노선도 클릭 대상으로 지정 */
-  onSelect?: () => void;
   /** 카드 탭 응답 수신 후 EMV 상세 모달 등을 열 때 사용 */
   onCardTapComplete?: (response: TerminalResponse) => void;
 }
@@ -28,8 +24,6 @@ interface TerminalCardProps {
  */
 export function TerminalCard({
   terminal,
-  isSelected = false,
-  onSelect,
   onCardTapComplete,
 }: TerminalCardProps) {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -57,16 +51,17 @@ export function TerminalCard({
   const resolveStationName = (type: "entry" | "exit") => {
     if (!selectedOption) return terminal.station;
     if (isSubway) {
-      return selectedOption.name;
+      return (selectedOption as SubwayStationOption).name;
     }
-    return type === "entry"
-      ? selectedOption.entryStopName
-      : selectedOption.exitStopName;
+    const bus = selectedOption as BusRouteOption;
+    return type === "entry" ? bus.entryStopName : bus.exitStopName;
   };
 
   const resolveLineName = () => {
     if (!selectedOption) return terminal.line;
-    return isSubway ? selectedOption.line : selectedOption.routeName;
+    return isSubway
+      ? (selectedOption as SubwayStationOption).line
+      : (selectedOption as BusRouteOption).routeName;
   };
 
   /** TerminalConfig.json journeyPresets 키와 동일한 preset 이름 (sync/authorization-tps 인자로 사용) */
@@ -88,11 +83,13 @@ export function TerminalCard({
         ? nextOption.entryTerminalId
         : nextOption.exitTerminalId;
     const nextStationName = isSubway
-      ? nextOption.name
+      ? (nextOption as SubwayStationOption).name
       : terminal.type === "entry"
-      ? nextOption.entryStopName
-      : nextOption.exitStopName;
-    const nextLineName = isSubway ? nextOption.line : nextOption.routeName;
+      ? (nextOption as BusRouteOption).entryStopName
+      : (nextOption as BusRouteOption).exitStopName;
+    const nextLineName = isSubway
+      ? (nextOption as SubwayStationOption).line
+      : (nextOption as BusRouteOption).routeName;
 
     updateTerminal(terminal.id, {
       terminalId: nextTerminalId,
@@ -252,19 +249,17 @@ export function TerminalCard({
 
       if (response.success) {
         success("카드 탭 성공!");
-        if (terminal.transitType === "subway") {
-          const stationName =
-            (isSubway && selectedOption
-              ? (selectedOption as SubwayStationOption).name
-              : terminal.station) || "알 수 없음";
-          addJourney({
-            station: stationName,
-            line: terminal.line,
-            type: terminal.type,
-            terminalId: terminal.terminalId,
-            timestamp: Date.now(),
-          });
-        }
+        const stationName =
+          isSubway && selectedOption
+            ? (selectedOption as SubwayStationOption).name
+            : terminal.station || "알 수 없음";
+        addJourney({
+          station: stationName,
+          line: terminal.line,
+          type: terminal.type,
+          terminalId: terminal.terminalId,
+          timestamp: Date.now(),
+        });
         updateTerminal(terminal.id, {
           lastCommandTime: Date.now(),
         });
@@ -282,111 +277,101 @@ export function TerminalCard({
     }
   };
 
-  return (
-    <div
-      className={`border rounded-lg p-4 bg-card transition-shadow ${
-        isSelected ? "ring-2 ring-primary shadow-lg" : "hover:shadow-lg"
-      }`}
-    >
-      {/* 단말기 헤더 */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-lg font-semibold text-foreground">
-              {terminal.name}
-            </h3>
-            <span className="px-2 py-0.5 text-xs font-medium rounded bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-              {isSubway ? "지하철" : "버스"}
-            </span>
-            <span
-              className={`px-2 py-0.5 text-xs font-medium rounded ${
-                terminal.type === "entry"
-                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                  : "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-              }`}
-            >
-              {terminal.type === "entry" ? "승차" : "하차"}
-            </span>
-            {isSubway && onSelect && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelect?.();
-                }}
-                className={`text-xs px-2 py-1 rounded border ${
-                  isSelected
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border bg-muted/50 text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                {isSelected ? "역 설정됨" : "노선도에서 역 선택"}
-              </button>
-            )}
-          </div>
-          <div className="space-y-1">
-            {terminal.line && (
-              <p className="text-sm text-muted-foreground">
-                {terminal.line}
-              </p>
-            )}
-            {terminal.station && (
-              <p className="text-sm text-muted-foreground">
-                {isSubway ? "역" : "정류장"}: {terminal.station}
-              </p>
-            )}
-            {isSubway && selectedOption && (
-              <p className="text-xs font-mono text-muted-foreground">
-                Station ID:{" "}
-                <span className="font-semibold">
-                  {(selectedOption as SubwayStationOption).stationId}
-                </span>
-              </p>
-            )}
-            <p className="text-xs font-mono text-muted-foreground">
-              Terminal ID:{" "}
-              <span className="font-semibold">{terminal.terminalId}</span>
-            </p>
-          </div>
-        </div>
+  // 현재 모드 한 줄: "지하철 1호선 서울역 · 승차" / "버스 새벽A160 도봉산역 · 하차"
+  const currentModeLine =
+    [terminal.line, terminal.station].filter(Boolean).join(" ") +
+    (terminal.station ? " · " : "") +
+    (terminal.type === "entry" ? "승차" : "하차");
 
-        {/* 상태 표시 */}
-        <div className="flex flex-col items-end gap-1">
-          <div className="flex items-center gap-2">
-            <div
-              className={`w-2 h-2 rounded-full ${
-                terminal.isPoweredOn ? "bg-green-500" : "bg-gray-400"
-              }`}
-            />
-            <span className="text-xs text-muted-foreground">
-              {terminal.isPoweredOn ? "전원 ON" : "전원 OFF"}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div
-              className={`w-2 h-2 rounded-full ${
-                terminal.isConnected ? "bg-blue-500" : "bg-gray-400"
-              }`}
-            />
-            <span className="text-xs text-muted-foreground">
-              {terminal.isConnected ? "연결됨" : "연결 안 됨"}
-            </span>
-          </div>
-        </div>
+  const btnBase =
+    "rounded-lg px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none";
+
+  return (
+    <div className="rounded-xl border-2 border-border bg-card p-5 shadow-md transition-shadow hover:shadow-lg">
+      {/* 단말기 헤더: 제목 + 현재 위치 한 줄 */}
+      <div className="mb-4">
+        <h3 className="text-lg font-semibold text-foreground tracking-tight">
+          {terminal.name}
+        </h3>
+        {currentModeLine && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            {isSubway ? "지하철 " : "버스 "}
+            {currentModeLine}
+          </p>
+        )}
       </div>
 
-      {/* 위치/승하차 선택: 지하철은 역은 노선도 클릭으로 설정, 승차/하차만 드롭다운 */}
-      <div className="space-y-2 mb-4">
+      {/* 전원/연결 상태: LED 스타일 한 블록 */}
+      <div className="mb-4 flex flex-wrap items-center gap-4 rounded-lg bg-muted/50 px-3 py-2">
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-block h-2.5 w-2.5 rounded-full shadow-sm ${
+              terminal.isPoweredOn
+                ? "bg-emerald-500 ring-2 ring-emerald-400/50"
+                : "bg-muted-foreground/40"
+            }`}
+            title={terminal.isPoweredOn ? "전원 ON" : "전원 OFF"}
+          />
+          <span className="text-xs font-medium text-muted-foreground">
+            {terminal.isPoweredOn ? "전원 ON" : "전원 OFF"}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-block h-2.5 w-2.5 rounded-full shadow-sm ${
+              terminal.isConnected
+                ? "bg-blue-500 ring-2 ring-blue-400/50"
+                : "bg-muted-foreground/40"
+            }`}
+            title={terminal.isConnected ? "연결됨" : "연결 안 됨"}
+          />
+          <span className="text-xs font-medium text-muted-foreground">
+            {terminal.isConnected ? "연결됨" : "연결 안 됨"}
+          </span>
+        </div>
+        <span
+          className={`ml-auto px-2 py-0.5 text-xs font-medium rounded-md ${
+            terminal.type === "entry"
+              ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+              : "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+          }`}
+        >
+          {terminal.type === "entry" ? "승차" : "하차"}
+        </span>
+      </div>
+
+      {/* 상세: 노선/역, Terminal ID */}
+      <div className="space-y-1 mb-4 text-sm text-muted-foreground">
+        {terminal.line && <p>{terminal.line}</p>}
+        {terminal.station && (
+          <p>{isSubway ? "역" : "정류장"}: {terminal.station}</p>
+        )}
+        {isSubway && selectedOption && (
+          <p className="text-xs font-mono">
+            Station ID:{" "}
+            <span className="font-semibold text-foreground">
+              {(selectedOption as SubwayStationOption).stationId}
+            </span>
+          </p>
+        )}
+        <p className="text-xs font-mono">
+          Terminal ID:{" "}
+          <span className="font-semibold text-foreground">{terminal.terminalId}</span>
+        </p>
+      </div>
+
+      {/* 위치/승하차 선택 */}
+      <div className="space-y-3 mb-4">
         {!isSubway && (
           <div>
-            <label className="block text-xs font-medium mb-1">
+            <label className="block text-xs font-medium text-muted-foreground mb-1">
               정류장 선택
             </label>
             <select
               value={selectedOption?.id || ""}
               onChange={(event) => handleStationChange(event.target.value)}
               disabled={isProcessing}
-              className="w-full px-2 py-2 text-sm border rounded bg-background"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
             >
               {busRoutes.map((route) => (
                 <option key={route.id} value={route.id}>
@@ -397,14 +382,16 @@ export function TerminalCard({
           </div>
         )}
         <div>
-          <label className="block text-xs font-medium mb-1">승차/하차</label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">
+            승차/하차
+          </label>
           <select
             value={terminal.type}
             onChange={(event) =>
               handleTypeChange(event.target.value as "entry" | "exit")
             }
             disabled={isProcessing}
-            className="w-full px-2 py-2 text-sm border rounded bg-background"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
           >
             <option value="entry">승차</option>
             <option value="exit">하차</option>
@@ -413,14 +400,14 @@ export function TerminalCard({
       </div>
 
       {/* 전원 버튼 */}
-      <div className="space-y-2">
+      <div className="space-y-3">
         <button
           onClick={handlePowerToggle}
           disabled={isProcessing}
-          className={`w-full px-4 py-2 rounded font-medium transition-colors ${
+          className={`w-full ${btnBase} ${
             terminal.isPoweredOn
-              ? "bg-red-500 text-white hover:bg-red-600 disabled:bg-gray-400"
-              : "bg-green-500 text-white hover:bg-green-600 disabled:bg-gray-400"
+              ? "bg-red-600 text-white hover:bg-red-700"
+              : "bg-emerald-600 text-white hover:bg-emerald-700"
           }`}
         >
           {isProcessing
@@ -430,21 +417,20 @@ export function TerminalCard({
             : "전원 켜기 (Sign On)"}
         </button>
 
-        {/* 추가 명령 버튼들 */}
         {terminal.isPoweredOn && (
-          <div className="space-y-2">
+          <div className="space-y-2 pt-1">
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={handleEchoTest}
                 disabled={isProcessing}
-                className="px-3 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 transition-colors"
+                className={`${btnBase} bg-blue-600 text-white hover:bg-blue-700`}
               >
                 Echo Test
               </button>
               <button
                 onClick={handleSync}
                 disabled={isProcessing}
-                className="px-3 py-2 text-sm bg-purple-500 text-white rounded hover:bg-purple-600 disabled:bg-gray-400 transition-colors"
+                className={`${btnBase} bg-violet-600 text-white hover:bg-violet-700`}
               >
                 Sync
               </button>
@@ -452,7 +438,7 @@ export function TerminalCard({
             <button
               onClick={handleCardTap}
               disabled={isProcessing}
-              className="w-full px-4 py-2 text-sm bg-orange-500 text-white rounded hover:bg-orange-600 disabled:bg-gray-400 transition-colors font-medium"
+              className={`w-full ${btnBase} bg-amber-500 text-white hover:bg-amber-600 font-medium`}
             >
               {isProcessing ? "처리 중..." : "카드 탭"}
             </button>
