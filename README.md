@@ -45,7 +45,8 @@ terminal-simulator-gui/
 │   │   ├── EmvTransactionDetailModal.tsx  # 카드 탭 EMV 상세 표시 모달 (단계별 설명)
 │   │   └── Toast.tsx         # 토스트 알림
 │   ├── data/
-│   │   ├── terminalPresets.ts # 지하철/버스 선택 옵션, getStationsByLine (노선도용)
+│   │   ├── terminalPresets.ts   # 지하철/버스 옵션, getStationsByLine, BusRouteOption·BusStopOption
+│   │   ├── busRoutesWithStops.json # 버스 노선·정류장 (생성 파일, git 미포함)
 │   │   └── emvStepDescriptions.ts  # EMV 단계별 한글 설명
 │   ├── contexts/
 │   │   └── ToastContext.tsx  # 전역 토스트 컨텍스트
@@ -60,6 +61,7 @@ terminal-simulator-gui/
 │   │   └── utils.ts          # 유틸 (cn 등)
 │   └── styles/
 │       └── global.css        # 전역 스타일
+├── operational-data/         # TAS_LOG_5.txt 등 참조 데이터 (git 미포함)
 ├── dist-electron/            # Electron·Preload·공유 타입 빌드 결과 (JS)
 ├── index.html                # Vite HTML 진입점
 ├── vite.config.ts            # Vite 설정 (alias: @, @shared, port 5175)
@@ -91,16 +93,16 @@ terminal-simulator-gui/
 - **TerminalList**: 연동 단말기 페이지. **왼쪽**에 통합 노선도(탭: 지하철/버스)+단말기 1대, **가운데**에 여정, **오른쪽**에 TCP 통신 로그.
 - **UnifiedRouteMap**: 노선도 한 패널. 상단에서 지하철/버스 선택, 지하철 선택 시 1호선/2호선 선택. 선택한 항목만 하단에 표시(지하철은 해당 노선 역만, 버스는 노선 목록). 노선/역 클릭 시 동일 단말기 데이터 갱신.
 - **SubwayMap**: `subwayStations` 기반 노선표 UI. `line` prop으로 1호선 또는 2호선만 표시 가능. 역 클릭 시 단일 단말기의 역 정보 갱신(transitType: subway).
-- **BusMap**: `busRoutes` 기반 버스 노선 목록. 노선 클릭 시 단일 단말기의 정류장·노선 갱신(transitType: bus).
+- **BusMap**: `busRoutes` 기반 버스 노선 목록. 노선 클릭 시 단일 단말기를 해당 노선 + **첫 정류장**으로 설정(transitType: bus). 정류장 변경은 단말기 카드의 정류장 드롭다운에서만 가능.
 - **JourneyPanel**: 카드 탭 성공 시 기록된 승하차 여정(지하철/버스)을 시간순으로 표시.
-- **TerminalCard**: 단말기 1대 카드. 노선도에서 지하철 역 또는 버스 노선 클릭 시 현재 모드가 바뀌며, 지하철 모드일 때는 역은 노선도 클릭·승차/하차 드롭다운, 버스 모드일 때는 정류장·승차/하차 선택. 전원·Sync·카드 탭 등.
+- **TerminalCard**: 단말기 1대 카드. 노선도에서 지하철 역 또는 버스 노선 클릭 시 현재 모드가 바뀌며, 지하철 모드일 때는 역 선택·승차/하차 드롭다운, **버스 모드일 때는 먼저 노선도를 통해 노선을 선택한 뒤, 정류장 선택 드롭다운에 그 노선의 정류장만 표시**되어 정류장을 고를 수 있음. 전원·Sync·카드 탭 등.
 - **ConnectionSettings / TcpConnectionPanel**: TCP 호스트·포트 설정, 연결/해제, 상태 표시.
 - **TcpLogPanel**: terminal-simulator와 주고받은 TCP 통신 로그 표시.
 - **EmvTransactionDetailModal**: 카드 탭 응답 수신 후 EMV 트랜잭션 상세를 TCP 로그와 별도로 모달에 표시. 단계별 아코디언과 한글 설명(emvStepDescriptions) 사용.
 - **stores/terminalStore**: Zustand로 단말기 1대 상태. 노선도에서 지하철 역 또는 버스 노선 클릭 시 terminalId·station·line·transitType 등 갱신. 전원/연결 상태.
 - **stores/journeyStore**: 카드 탭 시 승하차 여정 로그를 저장(지하철/버스 공통).
 - **stores/tcpLogStore**: TCP 통신 로그를 저장.
-- **data/terminalPresets**: `TerminalConfig.json` 기반 지하철/버스 옵션, `getStationsByLine()` 노선별 역 목록(노선도 배치용).
+- **data/terminalPresets**: `TerminalConfig.json` 기반 지하철/버스 옵션, `getStationsByLine()` 노선별 역 목록(노선도 배치용). 버스는 **노선(route) + 정류장(stop) 2단계**: `BusRouteOption`에 `routeId`, `stops: BusStopOption[]`가 있으며, `busRoutesWithStops.json`에서 로드.
 - **data/emvStepDescriptions**: EMV 단계 제목별 한글 설명. 모달에서 단계별 설명 표시에 사용.
 - **utils/tcpClient**: Renderer에서 `window.electronAPI.tcp` 호출만 담당 (실제 소켓은 Main의 `tcpClient.ts`).
 - **utils/emvLogParser**: 카드 탭 응답 메시지를 `===== ... =====` 구간으로 파싱해 단계 배열로 반환. 모달에서 아코디언 표시에 사용.
@@ -112,6 +114,12 @@ terminal-simulator-gui/
 1. 사용자가 연결 설정에서 "연결" → Renderer `tcpClient` → IPC `tcp:connect` → Main `TcpClient.connect()`.
 2. 사용자가 단말기 카드에서 "카드 탭" 등 액션 → IPC `tcp:sendCommand` / `tcp:tapCard` → Main에서 JSON으로 TCP 전송.
 3. Java Simulator 응답 → Main `TcpClient`가 수신 → 필요 시 IPC로 Renderer에 전달 → 스토어/UI 갱신.
+
+### 버스 노선/정류장 2단계 선택
+
+- **노선 선택**: 통합 노선도에서 "버스" 탭을 선택한 뒤, 표시된 버스 노선(새벽A160, 심야A21, 동대문A01, 서대문A01 등) 중 하나를 클릭하면, 단말기가 해당 노선 + 그 노선의 **첫 정류장**으로 설정됩니다.
+- **정류장 선택**: 단말기 카드의 "정류장 선택" 드롭다운에는 **현재 선택된 노선의 정류장만** 나열됩니다. 노선을 선택하지 않은 상태에서는 "노선을 먼저 선택하세요" 안내가 표시됩니다. 정류장을 바꾸면 해당 정류장의 preset(승차/하차)과 terminalId로 단말기 상태가 갱신됩니다.
+- 버스 데이터(`busRoutesWithStops.json` / `terminalPresets.ts`)와 Terminal Simulator의 `TerminalConfig.json` `journeyPresets`(bus_in_* / bus_out_*)가 1:1로 대응합니다.
 
 ---
 
@@ -136,6 +144,14 @@ npm run dev
 # Electron만 실행 (이미 빌드된 경우)
 npm run electron
 ```
+
+---
+
+## 운영 데이터 (git 미포함)
+
+- **`operational-data/`**: TAS 원본 등 참조용 데이터. 저장소에 올리지 않음(.gitignore). 파싱 스크립트는 `operational-data/TAS_LOG_5.txt`를 참조합니다.
+- **`src/data/busRoutesWithStops.json`**: 버스 노선·정류장 목록. TAS 파싱 후 terminal-simulator 쪽 스크립트로 생성하며, 동일하게 git에 포함하지 않습니다. 앱 실행을 위해 이 파일이 로컬에 있어야 합니다.
+- 이미 커밋된 파일을 추적 해제하려면: `git rm --cached operational-data/TAS_LOG_5.txt`, `git rm --cached src/data/busRoutesWithStops.json` 후 커밋하세요.
 
 ---
 

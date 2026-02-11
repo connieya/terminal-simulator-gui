@@ -1,11 +1,14 @@
 {
-	"folders": [
-		{
-			"path": ".."
-		},
-		{
-			"path": "../../workspace/terminal-simulator"
-		}
-	],
-	"settings": {}
+  "folders": [
+    {
+      "path": "..",
+    },
+    {
+      "path": "../../workspace/terminal-simulator",
+    },
+    {
+      "path": "../../workspace/open-payment/abt",
+    },
+  ],
+  "settings": {},
 }

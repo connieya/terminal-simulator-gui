@@ -7,7 +7,7 @@ import { DEFAULT_TCP_CONFIG } from "@shared/types";
 import {
   busRoutes,
   subwayStations,
-  type BusRouteOption,
+  type BusStopOption,
   type SubwayStationOption,
 } from "@/data/terminalPresets";
 import { useJourneyStore } from "@/stores/journeyStore";
@@ -34,34 +34,41 @@ export function TerminalCard({
     terminal.transitType ??
     (terminal.terminalId.startsWith("B") ? "bus" : "subway");
   const isSubway = transitType === "subway";
-  const stationOptions = isSubway ? subwayStations : busRoutes;
+  const currentRoute =
+    !isSubway && terminal.line
+      ? busRoutes.find((r) => r.routeName === terminal.line) ?? null
+      : null;
+  const currentStop =
+    currentRoute?.stops.find(
+      (s) =>
+        s.entryTerminalId === terminal.terminalId ||
+        s.exitTerminalId === terminal.terminalId
+    ) ?? null;
+  const stationOptions = isSubway ? subwayStations : (currentRoute?.stops ?? []);
   const currentOption = isSubway
     ? subwayStations.find(
         (station) =>
           station.entryTerminalId === terminal.terminalId ||
           station.exitTerminalId === terminal.terminalId
       )
-    : busRoutes.find(
-        (route) =>
-          route.entryTerminalId === terminal.terminalId ||
-          route.exitTerminalId === terminal.terminalId
-      );
-  const selectedOption = currentOption || stationOptions[0];
+    : currentStop;
+  const selectedOption = isSubway
+    ? (currentOption || subwayStations[0])
+    : (currentStop || (currentRoute?.stops[0] as BusStopOption | undefined));
 
-  const resolveStationName = (type: "entry" | "exit") => {
+  const resolveStationName = (_type: "entry" | "exit") => {
     if (!selectedOption) return terminal.station;
     if (isSubway) {
       return (selectedOption as SubwayStationOption).name;
     }
-    const bus = selectedOption as BusRouteOption;
-    return type === "entry" ? bus.entryStopName : bus.exitStopName;
+    return (selectedOption as BusStopOption).stopName;
   };
 
   const resolveLineName = () => {
-    if (!selectedOption) return terminal.line;
-    return isSubway
-      ? (selectedOption as SubwayStationOption).line
-      : (selectedOption as BusRouteOption).routeName;
+    if (isSubway && selectedOption) {
+      return (selectedOption as SubwayStationOption).line;
+    }
+    return terminal.line ?? currentRoute?.routeName ?? "";
   };
 
   /** TerminalConfig.json journeyPresets 키와 동일한 preset 이름 (sync/authorization-tps 인자로 사용) */
@@ -71,8 +78,8 @@ export function TerminalCard({
       const inOut = terminal.type === "entry" ? "in" : "out";
       return `subway_${inOut}_${selectedOption.id}`;
     }
-    const busOption = selectedOption as BusRouteOption;
-    return terminal.type === "entry" ? busOption.entryPresetKey : busOption.exitPresetKey;
+    const busStop = selectedOption as BusStopOption;
+    return terminal.type === "entry" ? busStop.entryPresetKey : busStop.exitPresetKey;
   };
 
   const handleStationChange = (id: string) => {
@@ -84,12 +91,10 @@ export function TerminalCard({
         : nextOption.exitTerminalId;
     const nextStationName = isSubway
       ? (nextOption as SubwayStationOption).name
-      : terminal.type === "entry"
-      ? (nextOption as BusRouteOption).entryStopName
-      : (nextOption as BusRouteOption).exitStopName;
+      : (nextOption as BusStopOption).stopName;
     const nextLineName = isSubway
       ? (nextOption as SubwayStationOption).line
-      : (nextOption as BusRouteOption).routeName;
+      : (currentRoute?.routeName ?? terminal.line);
 
     updateTerminal(terminal.id, {
       terminalId: nextTerminalId,
@@ -368,16 +373,20 @@ export function TerminalCard({
               정류장 선택
             </label>
             <select
-              value={selectedOption?.id || ""}
+              value={selectedOption?.id ?? ""}
               onChange={(event) => handleStationChange(event.target.value)}
-              disabled={isProcessing}
+              disabled={isProcessing || !currentRoute}
               className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
             >
-              {busRoutes.map((route) => (
-                <option key={route.id} value={route.id}>
-                  {route.routeName} · {route.entryStopName} ↔ {route.exitStopName}
-                </option>
-              ))}
+              {!currentRoute ? (
+                <option value="">노선을 먼저 선택하세요 (노선도에서 클릭)</option>
+              ) : (
+                currentRoute.stops.map((stop) => (
+                  <option key={stop.id} value={stop.id}>
+                    {stop.stopName}
+                  </option>
+                ))
+              )}
             </select>
           </div>
         )}

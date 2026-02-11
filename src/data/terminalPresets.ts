@@ -8,16 +8,29 @@ export type SubwayStationOption = {
   exitTerminalId: string
 }
 
+/** 노선 내 정류장 한 건 (정류장 드롭다운·preset 매핑용) */
+export type BusStopOption = {
+  id: string
+  stopName: string
+  entryPresetKey: string
+  exitPresetKey: string
+  entryTerminalId: string
+  exitTerminalId: string
+}
+
 export type BusRouteOption = {
   id: string
   routeName: string
+  /** TerminalConfig journeyLog의 route_id (9자) */
+  routeId: string
+  /** 노선의 정류장 목록 (순서 유지) */
+  stops: BusStopOption[]
+  /** 첫/끝 정류장 표시용 (stops[0] / stops[stops.length-1]) */
   entryStopName: string
   exitStopName: string
   entryTerminalId: string
   exitTerminalId: string
-  /** TerminalConfig.json journeyPresets 키 (승차) */
   entryPresetKey: string
-  /** TerminalConfig.json journeyPresets 키 (하차) */
   exitPresetKey: string
 }
 
@@ -175,45 +188,6 @@ export function getStationsByLine(): {
   return { '1호선': line1, '2호선': line2 }
 }
 
-export const busRoutes: BusRouteOption[] = [
-  {
-    id: 'dobo_to_yeongdeungpo',
-    routeName: '새벽A160',
-    entryStopName: '도봉산역',
-    exitStopName: '영등포역',
-    entryTerminalId: 'B12001',
-    exitTerminalId: 'B12002',
-    entryPresetKey: 'bus_in_dobongsan',
-    exitPresetKey: 'bus_out_yeongdeungpo',
-  },
-  {
-    id: 'hapjeong_to_dongdaemun',
-    routeName: '심야A21',
-    entryStopName: '합정역',
-    exitStopName: '동대문역.흥인지문',
-    entryTerminalId: 'B-HAPJEONG-E01',
-    exitTerminalId: 'B-DONGDAEMUN-X01',
-    entryPresetKey: 'bus_in_hapjeong',
-    exitPresetKey: 'bus_out_dongdaemun',
-  },
-  {
-    id: 'janghan_to_kyunghee',
-    routeName: '동대문A01',
-    entryStopName: '장한평역3번출구',
-    exitStopName: '경희대의료원.경희여중고',
-    entryTerminalId: 'B-JANGHANPYEONG-E01',
-    exitTerminalId: 'B-KYUNGHEE-X01',
-    entryPresetKey: 'bus_in_janghanpyeong',
-    exitPresetKey: 'bus_out_kyunghee',
-  },
-  {
-    id: 'seodaemun_to_gajwa',
-    routeName: '서대문A01',
-    entryStopName: '서대문문화체육회관입구',
-    exitStopName: '가좌역3번출구',
-    entryTerminalId: 'B-SEODAEMUN-E01',
-    exitTerminalId: 'B-GAJWA-X01',
-    entryPresetKey: 'bus_in_seodaemun',
-    exitPresetKey: 'bus_out_gajwa',
-  },
-]
+import busRoutesWithStops from './busRoutesWithStops.json'
+
+export const busRoutes: BusRouteOption[] = busRoutesWithStops as BusRouteOption[]

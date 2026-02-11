@@ -18,24 +18,22 @@ export function BusMap({ embedded }: BusMapProps) {
   const updateTerminal = useTerminalStore((s) => s.updateTerminal)
 
   const currentRouteId =
-    terminal?.transitType === 'bus'
-      ? busRoutes.find(
-          (r) =>
-            r.entryTerminalId === terminal.terminalId ||
-            r.exitTerminalId === terminal.terminalId
-        )?.id ?? null
+    terminal?.transitType === 'bus' && terminal?.line
+      ? busRoutes.find((r) => r.routeName === terminal.line)?.id ?? null
       : null
 
   const handleRouteClick = (route: BusRouteOption) => {
     if (!terminal) return
+    const firstStop = route.stops[0]
+    if (!firstStop) return
     const terminalId =
-      terminal.type === 'entry' ? route.entryTerminalId : route.exitTerminalId
-    const station =
-      terminal.type === 'entry' ? route.entryStopName : route.exitStopName
+      terminal.type === 'entry'
+        ? firstStop.entryTerminalId
+        : firstStop.exitTerminalId
     updateTerminal(terminal.id, {
       transitType: 'bus',
       terminalId,
-      station,
+      station: firstStop.stopName,
       line: route.routeName,
     })
   }
@@ -81,7 +79,7 @@ function RouteNode({ route, isSelected, onClick }: RouteNodeProps) {
         borderColor: isSelected ? BUS_LINE_COLOR : 'var(--border)',
         backgroundColor: isSelected ? 'rgba(232, 93, 4, 0.1)' : undefined,
       }}
-      title={`${route.routeName}: ${route.entryStopName} ↔ ${route.exitStopName}`}
+      title={`${route.routeName}: ${route.entryStopName} ↔ ${route.exitStopName} (정류장 ${route.stops.length}개)`}
     >
       <span
         className="h-2.5 w-2.5 shrink-0 rounded-full"
