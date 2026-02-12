@@ -26,3 +26,16 @@ dist-ssr
 # 운영/참조 데이터 (생성·외부 유지, 저장소에 포함하지 않음)
 operational-data/
 src/data/busRoutesWithStops.json
+TAS_LOG*.txt
+
+# 보안: 비밀키·환경 변수 파일 (저장소에 올리지 않음)
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+secrets/
+*.pem
+**/local-secrets*
+**/secrets*.json

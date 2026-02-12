@@ -1,7 +1,10 @@
 /**
  * TPS 직접 거래용 TLV 인코딩/디코딩
  * psp-api-terminal RequestMessage / ResponseMessage 와이어 형식과 호환
+ * MAC: HMAC-SHA256(Header+Payload, key) 앞 8바이트 (MacCalculator와 동일)
  */
+
+import { createHmac } from "node:crypto"
 
 const HEADER_LENGTH = 42
 const MAC_LENGTH = 8
@@ -19,6 +22,28 @@ const TAG_TERMINAL_DENYLIST_VERSION = 0x84
 const TAG_TERMINAL_BINLIST_VERSION = 0x85
 const TAG_TERMINAL_UTC_UNIX_TIME = 0x86
 const TAG_ORPHAN_FILE = 0xaa
+
+/** psp-api-terminal MacCalculator.DEFAULT_KEY와 동일 (개발/테스트용). 운영에서는 TPS_MAC_KEY 환경 변수 사용 권장 */
+const DEFAULT_MAC_KEY = Buffer.from([
+  0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0,
+  0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
+])
+
+function getMacKey(): Buffer {
+  const envKey = process.env.TPS_MAC_KEY
+  if (envKey && /^[0-9a-fA-F]+$/.test(envKey) && envKey.length >= 32) {
+    return Buffer.from(envKey.slice(0, 32), "hex")
+  }
+  return DEFAULT_MAC_KEY
+}
+
+/** Header + Payload에 대한 MAC 8바이트 (HMAC-SHA256 결과 앞 8바이트) */
+function calculateMac(header: Buffer, payload: Buffer): Buffer {
+  const key = getMacKey()
+  const dataToSign = Buffer.concat([header, payload])
+  const fullMac = createHmac("sha256", key).update(dataToSign).digest()
+  return fullMac.subarray(0, MAC_LENGTH)
+}
 
 function writeTlv(tag: number, value: Buffer): Buffer {
   const len = value.length
@@ -58,7 +83,7 @@ export function encodeSignOnRequest(terminalId: string): Buffer {
   ])
   const payload = writeTlv(TAG_REQUEST_TEMPLATE, inner)
 
-  const mac = Buffer.alloc(MAC_LENGTH)
+  const mac = calculateMac(header, payload)
   const body = Buffer.concat([header, payload, mac])
   return body
 }
