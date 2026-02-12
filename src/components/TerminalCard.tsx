@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTerminalStore } from "@/stores/terminalStore";
 import { tcpClient } from "@/utils/tcpClient";
 import { useToast } from "@/contexts/ToastContext";
-import type { TerminalInfo, TerminalResponse } from "@shared/types";
+import type { TerminalInfo, TerminalResponse, TcpConnectionConfig } from "@shared/types";
 import { DEFAULT_TCP_CONFIG } from "@shared/types";
 import {
   busRoutes,
@@ -17,6 +17,8 @@ interface TerminalCardProps {
   terminal: TerminalInfo;
   /** 카드 탭 응답 수신 후 EMV 상세 모달 등을 열 때 사용 */
   onCardTapComplete?: (response: TerminalResponse) => void;
+  /** Sign On 시 미연결이면 이 설정으로 연결. 미전달 시 DEFAULT_TCP_CONFIG(시뮬레이터) 사용 */
+  tcpConfig?: TcpConnectionConfig;
 }
 
 /**
@@ -26,8 +28,10 @@ interface TerminalCardProps {
 export function TerminalCard({
   terminal,
   onCardTapComplete,
+  tcpConfig,
 }: TerminalCardProps) {
   const [isProcessing, setIsProcessing] = useState(false);
+  const effectiveTcpConfig = tcpConfig ?? DEFAULT_TCP_CONFIG;
   const { setTerminalPower, updateTerminal } = useTerminalStore();
   const { success, error: showError } = useToast();
   const addJourney = useJourneyStore((state) => state.addJourney);
@@ -149,10 +153,10 @@ export function TerminalCard({
         const isConnected = await tcpClient.isConnected();
         if (!isConnected) {
           try {
-            await tcpClient.connect(DEFAULT_TCP_CONFIG);
+            await tcpClient.connect(effectiveTcpConfig);
           } catch {
             showError(
-              "Terminal Simulator에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요."
+              "서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요."
             );
             return;
           }
@@ -190,7 +194,7 @@ export function TerminalCard({
     try {
       const isConnected = await tcpClient.isConnected();
       if (!isConnected) {
-        showError("Terminal Simulator에 연결되지 않았습니다.");
+        showError("서버에 연결되지 않았습니다.");
         return;
       }
 
@@ -223,7 +227,7 @@ export function TerminalCard({
     try {
       const isConnected = await tcpClient.isConnected();
       if (!isConnected) {
-        showError("Terminal Simulator에 연결되지 않았습니다.");
+        showError("서버에 연결되지 않았습니다.");
         return;
       }
 
@@ -260,7 +264,7 @@ export function TerminalCard({
     try {
       const isConnected = await tcpClient.isConnected();
       if (!isConnected) {
-        showError("Terminal Simulator에 연결되지 않았습니다.");
+        showError("서버에 연결되지 않았습니다.");
         return;
       }
 
@@ -315,17 +319,34 @@ export function TerminalCard({
 
   return (
     <div className="rounded-xl border-2 border-border bg-card p-5 shadow-md transition-shadow hover:shadow-lg">
-      {/* 단말기 헤더: 제목 + 현재 위치 한 줄 */}
-      <div className="mb-4">
-        <h3 className="text-lg font-semibold text-foreground tracking-tight">
-          {terminal.name}
-        </h3>
-        {currentModeLine && (
-          <p className="mt-1 text-sm text-muted-foreground">
-            {isSubway ? "지하철 " : "버스 "}
-            {currentModeLine}
-          </p>
-        )}
+      {/* 단말기 헤더: 제목 + 현재 위치 한 줄, 우측 상단에 Sign On / Sign Off */}
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-lg font-semibold text-foreground tracking-tight">
+            {terminal.name}
+          </h3>
+          {currentModeLine && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              {isSubway ? "지하철 " : "버스 "}
+              {currentModeLine}
+            </p>
+          )}
+        </div>
+        <button
+          onClick={handlePowerToggle}
+          disabled={isProcessing}
+          className={`shrink-0 ${btnBase} ${
+            terminal.isPoweredOn
+              ? "bg-red-600 text-white hover:bg-red-700"
+              : "bg-emerald-600 text-white hover:bg-emerald-700"
+          }`}
+        >
+          {isProcessing
+            ? "처리 중..."
+            : terminal.isPoweredOn
+            ? "전원 끄기 (Sign Off)"
+            : "전원 켜기 (Sign On)"}
+        </button>
       </div>
 
       {/* 전원/연결 상태: LED 스타일 한 블록 */}
@@ -430,52 +451,34 @@ export function TerminalCard({
         </div>
       </div>
 
-      {/* 전원 버튼 */}
-      <div className="space-y-3">
-        <button
-          onClick={handlePowerToggle}
-          disabled={isProcessing}
-          className={`w-full ${btnBase} ${
-            terminal.isPoweredOn
-              ? "bg-red-600 text-white hover:bg-red-700"
-              : "bg-emerald-600 text-white hover:bg-emerald-700"
-          }`}
-        >
-          {isProcessing
-            ? "처리 중..."
-            : terminal.isPoweredOn
-            ? "전원 끄기 (Sign Off)"
-            : "전원 켜기 (Sign On)"}
-        </button>
-
-        {terminal.isPoweredOn && (
-          <div className="space-y-2 pt-1">
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={handleEchoTest}
-                disabled={isProcessing}
-                className={`${btnBase} bg-blue-600 text-white hover:bg-blue-700`}
-              >
-                Echo Test
-              </button>
-              <button
-                onClick={handleSync}
-                disabled={isProcessing}
-                className={`${btnBase} bg-violet-600 text-white hover:bg-violet-700`}
-              >
-                Sync
-              </button>
-            </div>
+      {/* 전원 ON 시: Echo Test, Sync, 카드 탭 */}
+      {terminal.isPoweredOn && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={handleCardTap}
+              onClick={handleEchoTest}
               disabled={isProcessing}
-              className={`w-full ${btnBase} bg-amber-500 text-white hover:bg-amber-600 font-medium`}
+              className={`${btnBase} bg-blue-600 text-white hover:bg-blue-700`}
             >
-              {isProcessing ? "처리 중..." : "카드 탭"}
+              Echo Test
+            </button>
+            <button
+              onClick={handleSync}
+              disabled={isProcessing}
+              className={`${btnBase} bg-violet-600 text-white hover:bg-violet-700`}
+            >
+              Sync
             </button>
           </div>
-        )}
-      </div>
+          <button
+            onClick={handleCardTap}
+            disabled={isProcessing}
+            className={`w-full ${btnBase} bg-amber-500 text-white hover:bg-amber-600 font-medium`}
+          >
+            {isProcessing ? "처리 중..." : "카드 탭"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

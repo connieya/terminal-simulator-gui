@@ -64,6 +64,16 @@ export type TerminalResponse = {
   timestamp: number
 }
 
+// 추후 확장용: 직접 거래에서 카드 탭을 별도 핸들러로 주입할 경우 사용
+// export type CardTapContext = {
+//   terminal: TerminalInfo
+//   getJourneyLog: () => string | undefined
+//   getPresetKey: () => string
+//   station?: string
+//   line?: string
+//   terminalType: TerminalType
+// }
+
 // TCP 연결 설정
 export type TcpConnectionConfig = {
   host: string

@@ -89,13 +89,18 @@ terminal-simulator-gui/
 
 ### 3. React 앱 (`src/`)
 
-- **App**: 좌측 탭(`LeftTabs`)으로 **연동 모드/직접 거래 모드** 화면 분기.
-- **TerminalList**: 연동 단말기 페이지. **왼쪽**에 통합 노선도(탭: 지하철/버스)+단말기 1대, **가운데**에 여정, **오른쪽**에 TCP 통신 로그.
+- **App**: 좌측 탭(`LeftTabs`)으로 **EMV 시뮬레이터 연동**(`/simulator`)과 **EMV 직접 거래**(`/direct`) 화면 분기.
+- **기능 모드**
+  - **EMV 시뮬레이터 연동**: Java Terminal Simulator(TCP)와 연동. 전원 on/off, Sync, Echo, 카드 탭이 모두 TCP 명령으로 처리.
+  - **EMV 직접 거래**: 시뮬레이터 없이 **실제 서버에 TCP 직접 연결** 후, Sign On, Sign Off, Echo Test, Sync, 카드 탭을 **동일하게** 사용. 차이는 연결 대상만(시뮬레이터 vs 직접 서버 호스트/포트).
+- **TerminalList**: 시뮬레이터 연동 페이지. **왼쪽**에 통합 노선도+단말기 1대, **가운데**에 여정, **오른쪽**에 TCP 통신 로그.
+- **DirectTradePage** (App 내): 직접 거래 페이지. 동일 3열 그리드. `UnifiedRouteMap`·`TerminalCard`(tcpConfig=직접 서버 주소)·`JourneyPanel`·**TcpLogPanel** 사용. **Sign On** 클릭 시 해당 서버로 TCP 연결 후 Echo/Sync/카드 탭 동일 사용. 카드 탭 완료 시 `EmvTransactionDetailModal` 동일하게 표시.
+- **TerminalCard**: 선택적 `tcpConfig` 전달 시 Sign On 시 해당 설정으로 연결(미전달 시 기본 시뮬레이터 주소). 전원·Sync·Echo·카드 탭 모두 `tcpClient.sendCommand`로 처리.
 - **UnifiedRouteMap**: 노선도 한 패널. 상단에서 지하철/버스 선택, 지하철 선택 시 1호선/2호선 선택. 선택한 항목만 하단에 표시(지하철은 해당 노선 역만, 버스는 노선 목록). 노선/역 클릭 시 동일 단말기 데이터 갱신.
 - **SubwayMap**: `subwayStations` 기반 노선표 UI. `line` prop으로 1호선 또는 2호선만 표시 가능. 역 클릭 시 단일 단말기의 역 정보 갱신(transitType: subway).
 - **BusMap**: `busRoutes` 기반 버스 노선 목록. 노선 클릭 시 단일 단말기를 해당 노선 + **첫 정류장**으로 설정(transitType: bus). 정류장 변경은 단말기 카드의 정류장 드롭다운에서만 가능.
 - **JourneyPanel**: 카드 탭 성공 시 기록된 승하차 여정(지하철/버스)을 시간순으로 표시.
-- **TerminalCard**: 단말기 1대 카드. 노선도에서 지하철 역 또는 버스 노선 클릭 시 현재 모드가 바뀌며, 지하철 모드일 때는 역 선택·승차/하차 드롭다운, **버스 모드일 때는 먼저 노선도를 통해 노선을 선택한 뒤, 정류장 선택 드롭다운에 그 노선의 정류장만 표시**되어 정류장을 고를 수 있음. 전원·Sync·카드 탭 등.
+- **TerminalCard**: 단말기 1대 카드. 노선도에서 지하철 역 또는 버스 노선 클릭 시 현재 모드가 바뀌며, 지하철 모드일 때는 역 선택·승차/하차 드롭다운, **버스 모드일 때는 먼저 노선도를 통해 노선을 선택한 뒤, 정류장 선택 드롭다운에 그 노선의 정류장만 표시**되어 정류장을 고를 수 있음. 전원·Sync·카드 탭 등. `tcpConfig` 전달 시(직접 거래 페이지) 해당 서버로 연결 후 동일 명령 사용.
 - **ConnectionSettings / TcpConnectionPanel**: TCP 호스트·포트 설정, 연결/해제, 상태 표시.
 - **TcpLogPanel**: terminal-simulator와 주고받은 TCP 통신 로그 표시.
 - **EmvTransactionDetailModal**: 카드 탭 응답 수신 후 EMV 트랜잭션 상세를 TCP 로그와 별도로 모달에 표시. 단계별 아코디언과 한글 설명(emvStepDescriptions) 사용.
