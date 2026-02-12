@@ -268,6 +268,20 @@ export function TerminalCard({
         return;
       }
 
+      // 직접 거래 모드: 리더에 카드가 태그될 때까지 대기(최대 30초) 후 연결
+      if (tcpConfig && window.electronAPI?.cardReader?.runEmvTransaction) {
+        success("카드를 리더에 태그해 주세요. (최대 30초 대기)");
+        const emvResult = await window.electronAPI.cardReader.runEmvTransaction();
+        if (!emvResult.success) {
+          showError(emvResult.error ?? "EMV 트랜잭션 실패");
+          return;
+        }
+        success("ICC Data 수집 완료. (우측 로그 참고)");
+        updateTerminal(terminal.id, { lastCommandTime: Date.now() });
+        onCardTapComplete?.({ success: true, timestamp: Date.now() });
+        return;
+      }
+
       const journeyLog = getJourneyLog();
       const response = await tcpClient.sendCommand({
         type: "card_tap",

@@ -1,1 +1,1 @@
-{"root":["../electron/main.ts","../electron/preload.ts","../electron/tcpclient.ts","../shared/types.ts"],"version":"5.9.3"}
+{"root":["../electron/cardreader.ts","../electron/emvcontactless.ts","../electron/main.ts","../electron/preload.ts","../electron/tcpclient.ts","../electron/tlvcodec.ts","../shared/types.ts"],"version":"5.9.3"}

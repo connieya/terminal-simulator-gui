@@ -2,6 +2,17 @@ import { app, BrowserWindow, ipcMain } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
 import { TcpClient } from "./tcpClient.js";
+import {
+  listReaders,
+  connectReader,
+  disconnectReader,
+  getConnectionStatus,
+  ensureConnected,
+  waitForCardAndConnect,
+  transmitApdu,
+  closePcsc,
+} from "./cardReader.js";
+import { runEmvContactless } from "./emvContactless.js";
 import type { TcpConnectionConfig, TerminalCommand } from "../shared/types.js";
 
 // ESM에서 __dirname 정의
@@ -11,6 +22,16 @@ const __dirname = path.dirname(__filename);
 // Electron Main Process
 let mainWindow: BrowserWindow | null = null;
 let tcpClient: TcpClient | null = null;
+
+/** Main에서 Renderer 우측 TCP 로그 패널로 로그 푸시 (EMV 단계 등) */
+function sendTcpLog(
+  direction: "out" | "in" | "info" | "error",
+  message: string,
+): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("tcp-log:add", { direction, message });
+  }
+}
 
 const DEFAULT_CONFIG: TcpConnectionConfig = {
   host: "localhost",
@@ -26,9 +47,9 @@ function createWindow() {
   // 빌드된 파일을 사용하므로 __dirname은 dist-electron/electron/을 가리킴
   // 절대 경로로 변환 (Electron은 절대 경로를 요구함)
   const preloadPath = path.resolve(__dirname, "preload.js");
-  
-  console.log('[Main] Preload path:', preloadPath);
-  console.log('[Main] __dirname:', __dirname);
+
+  console.log("[Main] Preload path:", preloadPath);
+  console.log("[Main] __dirname:", __dirname);
 
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -99,7 +120,7 @@ function setupIpcHandlers() {
       await tcpClient!.connect();
 
       console.log(
-        `TCP connected to ${connectionConfig.host}:${connectionConfig.port}`
+        `TCP connected to ${connectionConfig.host}:${connectionConfig.port}`,
       );
       return { success: true };
     } catch (error) {
@@ -160,7 +181,7 @@ function setupIpcHandlers() {
         }
         const command: TerminalCommand = {
           type: "card_tap",
-          cardType: cardData?.type as any,
+          cardType: cardData?.type as TerminalCommand["cardType"],
           cardData: cardData?.data,
         };
         const response = await tcpClient.sendCommand(command);
@@ -171,8 +192,104 @@ function setupIpcHandlers() {
           error: error instanceof Error ? error.message : "Unknown error",
         };
       }
-    }
+    },
   );
+
+  // PC/SC 카드 리더 API
+  ipcMain.handle("cardReader:listReaders", async () => {
+    try {
+      const readers = await listReaders();
+      return { success: true, readers };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      console.error("[Main] cardReader:listReaders failed:", msg);
+      return { success: false, error: msg, readers: [] };
+    }
+  });
+
+  ipcMain.handle("cardReader:connect", async (_, readerName: string) => {
+    try {
+      await connectReader(readerName);
+      return { success: true };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      console.error("[Main] cardReader:connect failed:", msg);
+      return { success: false, error: msg };
+    }
+  });
+
+  ipcMain.handle("cardReader:disconnect", async () => {
+    try {
+      await disconnectReader();
+      return { success: true };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      console.error("[Main] cardReader:disconnect failed:", msg);
+      return { success: false, error: msg };
+    }
+  });
+
+  ipcMain.handle("cardReader:getStatus", () => {
+    return getConnectionStatus();
+  });
+
+  /** 카드 탭 시: 연결돼 있지 않으면 첫 번째 리더로 자동 연결 (카드 없이 시도 → 실패 가능) */
+  ipcMain.handle("cardReader:ensureConnected", async () => {
+    try {
+      return await ensureConnected();
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      console.error("[Main] cardReader:ensureConnected failed:", msg);
+      return { success: false, error: msg };
+    }
+  });
+
+  /** 카드 탭 시: 리더에 카드가 태그될 때까지 대기(최대 30초) 후 연결 */
+  ipcMain.handle(
+    "cardReader:waitForCardAndConnect",
+    async (_, options?: { timeoutMs?: number }) => {
+      try {
+        return await waitForCardAndConnect(options);
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : "Unknown error";
+        console.error("[Main] cardReader:waitForCardAndConnect failed:", msg);
+        return { success: false, error: msg };
+      }
+    },
+  );
+
+  /** EMV Contactless 트랜잭션: 카드 대기 → PPSE → AID → GPO → Read Record → ICC Data, 로그는 sendTcpLog로 전송 */
+  ipcMain.handle("cardReader:runEmvTransaction", async () => {
+    try {
+      sendTcpLog("info", "EMV Contactless 트랜잭션 시작");
+      const connectResult = await waitForCardAndConnect({ timeoutMs: 30_000 });
+      if (!connectResult.success) {
+        sendTcpLog("error", connectResult.error ?? "리더 연결 실패");
+        return {
+          success: false,
+          error: connectResult.error,
+          iccDataHex: undefined,
+        };
+      }
+      const result = await runEmvContactless(
+        (cmd) => transmitApdu(cmd, 512),
+        sendTcpLog,
+      );
+      if (!result.success) {
+        return { success: false, error: result.error, iccDataHex: undefined };
+      }
+      return {
+        success: true,
+        iccDataHex: result.iccData?.toString("hex"),
+        error: undefined,
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      sendTcpLog("error", msg);
+      console.error("[Main] cardReader:runEmvTransaction failed:", msg);
+      return { success: false, error: msg, iccDataHex: undefined };
+    }
+  });
 }
 
 app.whenReady().then(() => {
@@ -200,4 +317,5 @@ app.on("before-quit", () => {
   if (tcpClient) {
     tcpClient.disconnect();
   }
+  closePcsc();
 });

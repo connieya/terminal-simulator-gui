@@ -24,7 +24,8 @@ terminal-simulator-gui/
 ├── electron/                 # Electron Main Process
 │   ├── main.ts               # 앱 진입점, 창 생성, IPC·TCP 초기화
 │   ├── preload.ts            # Renderer ↔ Main IPC 브릿지 (contextBridge)
-│   └── tcpClient.ts          # Java Terminal Simulator와 TCP 통신 (연결/명령/재연결)
+│   ├── tcpClient.ts          # Java Terminal Simulator와 TCP 통신 (연결/명령/재연결)
+│   └── cardReader.ts        # PC/SC 카드 리더 연동 (리더 목록/연결/해제)
 ├── shared/
 │   └── types.ts              # 공유 타입 (TerminalInfo, TerminalCommand, TcpConnectionConfig 등)
 ├── src/                      # React 렌더러 (Vite 빌드)
@@ -84,8 +85,9 @@ terminal-simulator-gui/
 ### 1. Electron (`electron/`)
 
 - **main.ts**: 브라우저 창 생성, 개발 시 Vite(5175) 로드, IPC 핸들러 등록, `TcpClient` 생성/연결/해제 및 명령 전달.
-- **preload.ts**: `contextBridge`로 `window.electronAPI.tcp`만 노출 (connect, disconnect, isConnected, sendCommand, tapCard).
+- **preload.ts**: `contextBridge`로 `window.electronAPI.tcp`와 `window.electronAPI.cardReader` 노출.
 - **tcpClient.ts**: Node `net.Socket`으로 Java Simulator(기본 `localhost:9999`)에 접속, JSON 명령 전송, 응답 파싱, 재연결·타임아웃 처리.
+- **cardReader.ts**: PC/SC(`pcsclite`)로 카드 리더 목록 조회·선택·연결/해제. 직접 거래 카드 탭 시 실제 리더에서 카드를 읽기 위한 1단계.
 
 ### 2. 공유 타입 (`shared/types.ts`)
 
@@ -157,6 +159,18 @@ terminal-simulator-gui/
 
 참고 코드: `psp-api-terminal`의 `RequestMessage`, `RequestHeader`, `MessageType`, `SignOnRequest`, `EchoTestRequest` 등. 서버 채널: `psp-server-tps`의 `TerminalTlvServer`.  
 현재 GUI는 JSON 기반 tcpClient만 사용하므로, TPS와 실제 통신하려면 TLV 인코딩/디코딩을 수행하는 전용 클라이언트 구현이 필요하다.
+
+---
+
+## 카드 리더 (PC/SC) - 직접 거래용
+
+직접 거래 카드 탭 시 **실제 NFC/콘택트리스 리더**에서 카드를 읽으려면 PC/SC 연동이 필요합니다.
+
+- **구현**: `electron/cardReader.ts`에서 `pcsclite`로 리더 연동. **카드 탭 버튼 클릭 시** 연결된 리더가 없으면 자동으로 리더를 탐색해 첫 번째 리더에 연결한 뒤 카드 탭을 진행합니다. 별도 리더 선택 UI는 없습니다.
+- **플랫폼**:
+  - **macOS**: PC/SC 프레임워크 내장. NFC 리더 연결 후 카드 탭 시 자동 인식.
+  - **Linux**: `libpcsclite1`, `libpcsclite-dev`, `pcscd` 설치 후 `npm install` 및 필요 시 `electron-rebuild`.
+  - **Windows**: WinSCard.dll 사용. 필요 시 `electron-rebuild` 권장.
 
 ---
 

@@ -6,6 +6,7 @@ import { SimulatorPage } from './pages/SimulatorPage'
 import { DirectTradePage } from './pages/DirectTradePage'
 import { tcpClient } from './utils/tcpClient'
 import { useTerminalStore } from './stores/terminalStore'
+import { useTcpLogStore } from '@/stores/tcpLogStore'
 import './App.css'
 
 function App() {
@@ -14,6 +15,20 @@ function App() {
   const setTerminalPower = useTerminalStore((s) => s.setTerminalPower)
   const setTerminalConnected = useTerminalStore((s) => s.setTerminalConnected)
   const terminalId = useTerminalStore((s) => s.terminals[0]?.id)
+
+  // Main 프로세스에서 보내는 로그(EMV 단계 등)를 우측 TCP 로그 패널에 반영
+  useEffect(() => {
+    const api = (window as Window & { electronAPI?: { onTcpLogAdd?: (cb: (e: { direction: string; message: string }) => void) => () => void } }).electronAPI
+    if (!api?.onTcpLogAdd) return
+    const remove = api.onTcpLogAdd((entry) => {
+      useTcpLogStore.getState().addLog({
+        direction: entry.direction as 'out' | 'in' | 'info' | 'error',
+        message: entry.message,
+        timestamp: Date.now(),
+      })
+    })
+    return remove
+  }, [])
 
   useEffect(() => {
     const pathname = location.pathname
