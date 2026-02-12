@@ -39,8 +39,8 @@ terminal-simulator-gui/
 │   ├── components/           # UI 컴포넌트
 │   │   ├── LeftTabs.tsx       # 좌측 탭 (연동/직접거래)
 │   │   ├── TerminalWorkspace.tsx # 공통 레이아웃 (노선도+단말기 | 여정 | TCP 로그 + 모달)
-│   │   ├── UnifiedRouteMap.tsx # 통합 노선도 (상단 선택: 지하철/버스, 지하철 시 1호선/2호선 → 선택한 내용만 표시)
-│   │   ├── SubwayMap.tsx     # 지하철 노선도 (line prop으로 1호선 또는 2호선만 표시 가능, 역 클릭 시 단일 단말기 설정)
+│   │   ├── UnifiedRouteMap.tsx # 통합 노선도 (상단 선택: 지하철/버스, 지하철 시 모든 노선 한 화면)
+│   │   ├── SubwayMap.tsx     # 지하철 노선도 (1~4호선 전체 표시, 노선별 색상·스크롤, 역 클릭 시 단일 단말기 설정)
 │   │   ├── BusMap.tsx        # 버스 노선 (노선 클릭 시 단일 단말기 정류장/노선 설정)
 │   │   ├── JourneyPanel.tsx  # 여정 패널 (카드 탭 기록, 지하철/버스 공통)
 │   │   ├── TerminalCard.tsx  # 단말기 카드 1개 (정보·액션, 노선도 클릭으로 모드 전환)
@@ -51,7 +51,8 @@ terminal-simulator-gui/
 │   │   ├── EmvTransactionDetailModal.tsx  # 카드 탭 EMV 상세 표시 모달 (단계별 설명)
 │   │   └── Toast.tsx         # 토스트 알림
 │   ├── data/
-│   │   ├── terminalPresets.ts   # 지하철/버스 옵션, getStationsByLine, BusRouteOption·BusStopOption
+│   │   ├── terminalPresets.ts   # 지하철/버스 옵션, getStationsByLine(1~4호선), BusRouteOption·BusStopOption
+│   │   ├── subwayStations.json  # 지하철 역 목록 (Terminal Simulator scripts/generate-subway-for-gui.cjs로 생성)
 │   │   ├── busRoutesWithStops.json # 버스 노선·정류장 (생성 파일, git 미포함)
 │   │   └── emvStepDescriptions.ts  # EMV 단계별 한글 설명
 │   ├── contexts/
@@ -105,8 +106,8 @@ terminal-simulator-gui/
   - **EMV 시뮬레이터 연동**: GUI → Java Terminal Simulator(TCP). 전원 on/off, Sync, Echo, 카드 탭이 모두 TCP 명령으로 처리.
   - **EMV 직접 거래**: Sign On 시 **TPS 서버에 직접 연결**(시뮬레이터 경유 없음). Echo, Sync, 카드 탭 등 동일하게 사용.
 - **TerminalCard**: 선택적 `tcpConfig` 전달 시 Sign On 시 해당 설정으로 연결(미전달 시 기본 시뮬레이터 주소). 전원·Sync·Echo·카드 탭 모두 `tcpClient.sendCommand`로 처리.
-- **UnifiedRouteMap**: 노선도 한 패널. 상단에서 지하철/버스 선택, 지하철 선택 시 1호선/2호선 선택. 선택한 항목만 하단에 표시(지하철은 해당 노선 역만, 버스는 노선 목록). 노선/역 클릭 시 동일 단말기 데이터 갱신.
-- **SubwayMap**: `subwayStations` 기반 노선표 UI. `line` prop으로 1호선 또는 2호선만 표시 가능. 역 클릭 시 단일 단말기의 역 정보 갱신(transitType: subway).
+- **UnifiedRouteMap**: 노선도 한 패널. 상단에서 지하철/버스 선택. 지하철 선택 시 **모든 노선(1~4호선)을 한 화면**에 표시. 노선/역 클릭 시 동일 단말기 데이터 갱신.
+- **SubwayMap**: `subwayStations`(subwayStations.json) 기반 노선도. 1~4호선 전체를 노선별 색상·블록으로 표시, 세로 스크롤. 역 클릭 시 단일 단말기의 역 정보 갱신(transitType: subway).
 - **BusMap**: `busRoutes` 기반 버스 노선 목록. 노선 클릭 시 단일 단말기를 해당 노선 + **첫 정류장**으로 설정(transitType: bus). 정류장 변경은 단말기 카드의 정류장 드롭다운에서만 가능.
 - **JourneyPanel**: 카드 탭 성공 시 기록된 승하차 여정(지하철/버스)을 시간순으로 표시.
 - **TerminalCard**: 단말기 1대 카드. 노선도에서 지하철 역 또는 버스 노선 클릭 시 현재 모드가 바뀌며, 지하철 모드일 때는 역 선택·승차/하차 드롭다운, **버스 모드일 때는 먼저 노선도를 통해 노선을 선택한 뒤, 정류장 선택 드롭다운에 그 노선의 정류장만 표시**되어 정류장을 고를 수 있음. 전원·Sync·카드 탭 등. `tcpConfig` 전달 시 해당 주소로 연결 후 동일 명령 사용.
@@ -116,7 +117,7 @@ terminal-simulator-gui/
 - **stores/terminalStore**: Zustand로 단말기 1대 상태. 노선도에서 지하철 역 또는 버스 노선 클릭 시 terminalId·station·line·transitType 등 갱신. 전원/연결 상태.
 - **stores/journeyStore**: 카드 탭 시 승하차 여정 로그를 저장(지하철/버스 공통).
 - **stores/tcpLogStore**: TCP 통신 로그를 저장.
-- **data/terminalPresets**: `TerminalConfig.json` 기반 지하철/버스 옵션, `getStationsByLine()` 노선별 역 목록(노선도 배치용). 버스는 **노선(route) + 정류장(stop) 2단계**: `BusRouteOption`에 `routeId`, `stops: BusStopOption[]`가 있으며, `busRoutesWithStops.json`에서 로드.
+- **data/terminalPresets**: 지하철 역은 `subwayStations.json`(Terminal Simulator의 `generate-subway-for-gui.cjs`로 생성)에서 로드, `getStationsByLine()`으로 1~4호선 노선별 역 목록(노선도 배치용). 버스는 **노선(route) + 정류장(stop) 2단계**: `BusRouteOption`에 `routeId`, `stops: BusStopOption[]`가 있으며, `busRoutesWithStops.json`에서 로드.
 - **data/emvStepDescriptions**: EMV 단계 제목별 한글 설명. 모달에서 단계별 설명 표시에 사용.
 - **utils/tcpClient**: Renderer에서 `window.electronAPI.tcp` 호출만 담당 (실제 소켓은 Main의 `tcpClient.ts`).
 - **utils/emvLogParser**: 카드 탭 응답 메시지를 `===== ... =====` 구간으로 파싱해 단계 배열로 반환. 모달에서 아코디언 표시에 사용.

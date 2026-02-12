@@ -174,6 +174,15 @@ export class TcpClient {
           | "exit"
           | undefined;
 
+        // 3·4호선 M3-*, M4-* terminalId → subway_3_in_xxx / subway_4_out_xxx
+        const m34 = terminalId.match(/^M([34])-([A-Z0-9]+)-[EX]\d+$/);
+        if (m34) {
+          const lineNum = m34[1];
+          const stem = m34[2].toLowerCase();
+          const inOut = terminalId.includes("-E") ? "in" : "out";
+          return `sync-tms subway_${lineNum}_${inOut}_${stem}`;
+        }
+
         let stationKey = "";
         if (command.station) {
           const fromStation = this.getStationKey(command.station);
@@ -239,6 +248,22 @@ export class TcpClient {
           throw new Error(
             "버스 카드 탭에는 노선·정류장 선택이 필요합니다. 정류장을 선택한 뒤 다시 시도해 주세요."
           );
+        }
+
+        // 3·4호선 M3-*, M4-* → subway_3_in_xxx / subway_4_out_xxx
+        const cardM34 = cardTerminalId.match(/^M([34])-([A-Z0-9]+)-[EX]\d+$/);
+        if (cardM34) {
+          const lineNum = cardM34[1];
+          const stem = cardM34[2].toLowerCase();
+          const cardInOut =
+            cardTerminalType === "entry"
+              ? "in"
+              : cardTerminalType === "exit"
+              ? "out"
+              : cardTerminalId?.includes("-E")
+              ? "in"
+              : "out";
+          return `authorization-tps subway_${lineNum}_${cardInOut}_${stem}`;
         }
 
         let cardStationKey = "";

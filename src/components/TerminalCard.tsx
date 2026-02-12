@@ -8,6 +8,7 @@ import {
   busRoutes,
   subwayStations,
   getSubwayJourneyLog,
+  getStationsByLine,
   type BusStopOption,
   type SubwayStationOption,
 } from "@/data/terminalPresets";
@@ -98,8 +99,11 @@ export function TerminalCard({
   const getPresetKey = (): string => {
     if (!selectedOption) return "";
     if (isSubway) {
+      const station = selectedOption as SubwayStationOption;
+      const key = terminal.type === "entry" ? station.entryPresetKey : station.exitPresetKey;
+      if (key) return key;
       const inOut = terminal.type === "entry" ? "in" : "out";
-      return `subway_${inOut}_${selectedOption.id}`;
+      return `subway_${inOut}_${station.id}`;
     }
     const busStop = selectedOption as BusStopOption;
     return terminal.type === "entry" ? busStop.entryPresetKey : busStop.exitPresetKey;
@@ -424,7 +428,37 @@ export function TerminalCard({
 
       {/* 위치/승하차 선택 */}
       <div className="space-y-3 mb-4">
-        {!isSubway && (
+        {isSubway ? (
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">
+              역 선택
+            </label>
+            <select
+              value={selectedOption?.id ?? ""}
+              onChange={(event) => handleStationChange(event.target.value)}
+              disabled={isProcessing}
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+            >
+              {(() => {
+                const byLine = getStationsByLine();
+                const lineOrder = ["1호선", "2호선", "3호선", "4호선"];
+                return lineOrder.map((lineKey) => {
+                  const stations = byLine[lineKey] ?? [];
+                  if (!stations.length) return null;
+                  return (
+                    <optgroup key={lineKey} label={lineKey}>
+                      {stations.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                });
+              })()}
+            </select>
+          </div>
+        ) : (
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1">
               정류장 선택
