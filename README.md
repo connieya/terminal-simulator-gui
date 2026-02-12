@@ -28,11 +28,16 @@ terminal-simulator-gui/
 ├── shared/
 │   └── types.ts              # 공유 타입 (TerminalInfo, TerminalCommand, TcpConnectionConfig 등)
 ├── src/                      # React 렌더러 (Vite 빌드)
-│   ├── App.tsx               # 루트: 좌측 탭 + 탭별 화면 분기
+│   ├── App.tsx               # 루트: 라우팅 설정 + 레이아웃 (좌측 탭 + 헤더 + 라우트)
 │   ├── main.tsx              # React 진입점
+│   ├── config/               # 설정 상수
+│   │   └── tcp.ts            # DIRECT_TCP_CONFIG (직접 거래 서버 주소)
+│   ├── pages/                # 페이지 컴포넌트
+│   │   ├── SimulatorPage.tsx # 시뮬레이터 연동 페이지 (TerminalWorkspace 래핑)
+│   │   └── DirectTradePage.tsx # 직접 거래 페이지 (TerminalWorkspace + tcpConfig)
 │   ├── components/           # UI 컴포넌트
 │   │   ├── LeftTabs.tsx       # 좌측 탭 (연동/직접거래)
-│   │   ├── TerminalList.tsx  # 연동 단말기 레이아웃 (노선도+단말기 | 여정 | TCP 로그)
+│   │   ├── TerminalWorkspace.tsx # 공통 레이아웃 (노선도+단말기 | 여정 | TCP 로그 + 모달)
 │   │   ├── UnifiedRouteMap.tsx # 통합 노선도 (상단 선택: 지하철/버스, 지하철 시 1호선/2호선 → 선택한 내용만 표시)
 │   │   ├── SubwayMap.tsx     # 지하철 노선도 (line prop으로 1호선 또는 2호선만 표시 가능, 역 클릭 시 단일 단말기 설정)
 │   │   ├── BusMap.tsx        # 버스 노선 (노선 클릭 시 단일 단말기 정류장/노선 설정)
@@ -89,12 +94,14 @@ terminal-simulator-gui/
 
 ### 3. React 앱 (`src/`)
 
-- **App**: 좌측 탭(`LeftTabs`)으로 **EMV 시뮬레이터 연동**(`/simulator`)과 **EMV 직접 거래**(`/direct`) 화면 분기.
+- **App**: 라우팅만 담당. 좌측 탭(`LeftTabs`)과 라우트(`/simulator`, `/direct`)를 설정.
+- **pages/SimulatorPage**: 시뮬레이터 연동 페이지. `TerminalWorkspace`를 래핑.
+- **pages/DirectTradePage**: 직접 거래 페이지. `TerminalWorkspace`에 `DIRECT_TCP_CONFIG`를 전달.
+- **config/tcp.ts**: 직접 거래 시 연결할 TPS 서버 주소 상수(`DIRECT_TCP_CONFIG`).
+- **TerminalWorkspace**: 공통 레이아웃 컴포넌트. **왼쪽**에 통합 노선도+단말기 1대, **가운데**에 여정, **오른쪽**에 TCP 통신 로그. `tcpConfig` prop으로 직접 거래 vs 시뮬레이터 구분. `EmvTransactionDetailModal` 상태 관리 포함.
 - **기능 모드**
   - **EMV 시뮬레이터 연동**: Java Terminal Simulator(TCP)와 연동. 전원 on/off, Sync, Echo, 카드 탭이 모두 TCP 명령으로 처리.
   - **EMV 직접 거래**: 시뮬레이터 없이 **실제 서버에 TCP 직접 연결** 후, Sign On, Sign Off, Echo Test, Sync, 카드 탭을 **동일하게** 사용. 차이는 연결 대상만(시뮬레이터 vs 직접 서버 호스트/포트).
-- **TerminalList**: 시뮬레이터 연동 페이지. **왼쪽**에 통합 노선도+단말기 1대, **가운데**에 여정, **오른쪽**에 TCP 통신 로그.
-- **DirectTradePage** (App 내): 직접 거래 페이지. 동일 3열 그리드. `UnifiedRouteMap`·`TerminalCard`(tcpConfig=직접 서버 주소)·`JourneyPanel`·**TcpLogPanel** 사용. **Sign On** 클릭 시 해당 서버로 TCP 연결 후 Echo/Sync/카드 탭 동일 사용. 카드 탭 완료 시 `EmvTransactionDetailModal` 동일하게 표시.
 - **TerminalCard**: 선택적 `tcpConfig` 전달 시 Sign On 시 해당 설정으로 연결(미전달 시 기본 시뮬레이터 주소). 전원·Sync·Echo·카드 탭 모두 `tcpClient.sendCommand`로 처리.
 - **UnifiedRouteMap**: 노선도 한 패널. 상단에서 지하철/버스 선택, 지하철 선택 시 1호선/2호선 선택. 선택한 항목만 하단에 표시(지하철은 해당 노선 역만, 버스는 노선 목록). 노선/역 클릭 시 동일 단말기 데이터 갱신.
 - **SubwayMap**: `subwayStations` 기반 노선표 UI. `line` prop으로 1호선 또는 2호선만 표시 가능. 역 클릭 시 단일 단말기의 역 정보 갱신(transitType: subway).
@@ -134,6 +141,22 @@ terminal-simulator-gui/
 - `sync`: 동기화 (승차/하차, 역 정보 등)  
 - `card_tap`: 카드 탭 시뮬레이션  
 - `echo-test`, `status`, `ping`, `reset` 등  
+
+---
+
+## 직접 거래 서버(TPS) 프로토콜
+
+직접 거래 모드에서 연결하는 서버는 **psp-server-tps**(Spring Boot TPS)이며, TCP 리스너는 `TerminalTlvServer`(Netty), 기본 **포트 21000**(`terminal.channel.netty.port`)이다.
+
+- **프레임**: `[2바이트 Length (big-endian)][Body]`. Body = RequestMessage(송신) 또는 ResponseMessage(수신).
+- **RequestMessage** (단말→서버): **RequestHeader(42바이트) + Payload(TLV) + MAC(8바이트)**.
+  - RequestHeader: magic "TRM"(3) + version(1) + **MessageType**(1) + seq(2) + payloadType(1) + terminalId(32) + reserved(2).  
+  - MessageType: SIGN_ON(0x01), ECHO_TEST(0x02), AUTHORIZATION(0x03), SYNC(0x04), SIGN_OFF(0x06) 등.
+  - Payload: 타입별 TLV (SignOnRequest, EchoTestRequest 등). payloadType 예: TLV_UNCOMPRESSED(0x01).
+- **수신**: 동일하게 2바이트 Length + ResponseMessage(ResponseHeader + Payload + MAC).
+
+참고 코드: `psp-api-terminal`의 `RequestMessage`, `RequestHeader`, `MessageType`, `SignOnRequest`, `EchoTestRequest` 등. 서버 채널: `psp-server-tps`의 `TerminalTlvServer`.  
+현재 GUI는 JSON 기반 tcpClient만 사용하므로, TPS와 실제 통신하려면 TLV 인코딩/디코딩을 수행하는 전용 클라이언트 구현이 필요하다.
 
 ---
 
