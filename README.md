@@ -40,7 +40,7 @@ terminal-simulator-gui/
 │   │   ├── LeftTabs.tsx       # 좌측 탭 (연동/직접거래)
 │   │   ├── TerminalWorkspace.tsx # 공통 레이아웃 (노선도+단말기 | 여정 | TCP 로그 + 모달)
 │   │   ├── UnifiedRouteMap.tsx # 통합 노선도 (상단 선택: 지하철/버스, 지하철 시 모든 노선 한 화면)
-│   │   ├── SubwayMap.tsx     # 지하철 노선도 (1~4호선 전체 표시, 노선별 색상·스크롤, 역 클릭 시 단일 단말기 설정)
+│   │   ├── SubwayMap.tsx     # 지하철 노선도 (1~9호선, 공공데이터 위경도 기반 스키매틱 또는 폴백 배치, 역 클릭 시 단일 단말기 설정)
 │   │   ├── BusMap.tsx        # 버스 노선 (노선 클릭 시 단일 단말기 정류장/노선 설정)
 │   │   ├── JourneyPanel.tsx  # 여정 패널 (카드 탭 기록, 지하철/버스 공통)
 │   │   ├── TerminalCard.tsx  # 단말기 카드 1개 (정보·액션, 노선도 클릭으로 모드 전환)
@@ -51,8 +51,10 @@ terminal-simulator-gui/
 │   │   ├── EmvTransactionDetailModal.tsx  # 카드 탭 EMV 상세 표시 모달 (단계별 설명)
 │   │   └── Toast.tsx         # 토스트 알림
 │   ├── data/
-│   │   ├── terminalPresets.ts   # 지하철/버스 옵션, getStationsByLine(1~4호선), BusRouteOption·BusStopOption
-│   │   ├── subwayStations.json  # 지하철 역 목록 (Terminal Simulator scripts/generate-subway-for-gui.cjs로 생성)
+│   │   ├── terminalPresets.ts      # 지하철/버스 옵션, getStationsByLine(1~9호선), BusRouteOption·BusStopOption
+│   │   ├── subwayStations.json     # 지하철 역 목록 (Terminal Simulator scripts/generate-subway-for-gui.cjs로 생성)
+│   │   ├── stationCoordinates.ts   # 노선도 배치: 공공데이터 좌표(stationCoordsFromPublic.json) 또는 폴백(anchor 보간)
+│   │   ├── stationCoordsFromPublic.json # (선택) 공공데이터 CSV→스키매틱 좌표. 비어 있으면 폴백 배치 사용
 │   │   ├── busRoutesWithStops.json # 버스 노선·정류장 (생성 파일, git 미포함)
 │   │   └── emvStepDescriptions.ts  # EMV 단계별 한글 설명
 │   ├── contexts/
@@ -68,6 +70,8 @@ terminal-simulator-gui/
 │   │   └── utils.ts          # 유틸 (cn 등)
 │   └── styles/
 │       └── global.css        # 전역 스타일
+├── scripts/
+│   └── generate-station-coords-from-csv.cjs  # 공공데이터 위경도 CSV → stationCoordsFromPublic.json 생성
 ├── operational-data/         # TAS_LOG_5.txt 등 참조 데이터 (git 미포함)
 ├── dist-electron/            # Electron·Preload·공유 타입 빌드 결과 (JS)
 ├── index.html                # Vite HTML 진입점
@@ -106,8 +110,8 @@ terminal-simulator-gui/
   - **EMV 시뮬레이터 연동**: GUI → Java Terminal Simulator(TCP). 전원 on/off, Sync, Echo, 카드 탭이 모두 TCP 명령으로 처리.
   - **EMV 직접 거래**: Sign On 시 **TPS 서버에 직접 연결**(시뮬레이터 경유 없음). Echo, Sync, 카드 탭 등 동일하게 사용.
 - **TerminalCard**: 선택적 `tcpConfig` 전달 시 Sign On 시 해당 설정으로 연결(미전달 시 기본 시뮬레이터 주소). 전원·Sync·Echo·카드 탭 모두 `tcpClient.sendCommand`로 처리.
-- **UnifiedRouteMap**: 노선도 한 패널. 상단에서 지하철/버스 선택. 지하철 선택 시 **모든 노선(1~4호선)을 한 화면**에 표시. 노선/역 클릭 시 동일 단말기 데이터 갱신.
-- **SubwayMap**: `subwayStations`(subwayStations.json) 기반 노선도. 1~4호선 전체를 노선별 색상·블록으로 표시, 세로 스크롤. 역 클릭 시 단일 단말기의 역 정보 갱신(transitType: subway).
+- **UnifiedRouteMap**: 노선도 한 패널. 상단에서 지하철/버스 선택. 지하철 선택 시 **모든 노선(1~9호선)을 한 화면**에 표시. 노선/역 클릭 시 동일 단말기 데이터 갱신.
+- **SubwayMap**: `subwayStations`(subwayStations.json) 기반 노선도. 1~9호선 전체를 노선별 색상으로 표시. 역 좌표는 **공공데이터 위경도 CSV**로 생성한 `stationCoordsFromPublic.json`이 있으면 사용하고, 없으면 폴백(anchor 보간) 배치. 역 클릭 시 단일 단말기의 역 정보 갱신(transitType: subway).
 - **BusMap**: `busRoutes` 기반 버스 노선 목록. 노선 클릭 시 단일 단말기를 해당 노선 + **첫 정류장**으로 설정(transitType: bus). 정류장 변경은 단말기 카드의 정류장 드롭다운에서만 가능.
 - **JourneyPanel**: 카드 탭 성공 시 기록된 승하차 여정(지하철/버스)을 시간순으로 표시.
 - **TerminalCard**: 단말기 1대 카드. 노선도에서 지하철 역 또는 버스 노선 클릭 시 현재 모드가 바뀌며, 지하철 모드일 때는 역 선택·승차/하차 드롭다운, **버스 모드일 때는 먼저 노선도를 통해 노선을 선택한 뒤, 정류장 선택 드롭다운에 그 노선의 정류장만 표시**되어 정류장을 고를 수 있음. 전원·Sync·카드 탭 등. `tcpConfig` 전달 시 해당 주소로 연결 후 동일 명령 사용.
@@ -117,7 +121,8 @@ terminal-simulator-gui/
 - **stores/terminalStore**: Zustand로 단말기 1대 상태. 노선도에서 지하철 역 또는 버스 노선 클릭 시 terminalId·station·line·transitType 등 갱신. 전원/연결 상태.
 - **stores/journeyStore**: 카드 탭 시 승하차 여정 로그를 저장(지하철/버스 공통).
 - **stores/tcpLogStore**: TCP 통신 로그를 저장.
-- **data/terminalPresets**: 지하철 역은 `subwayStations.json`(Terminal Simulator의 `generate-subway-for-gui.cjs`로 생성)에서 로드, `getStationsByLine()`으로 1~4호선 노선별 역 목록(노선도 배치용). 버스는 **노선(route) + 정류장(stop) 2단계**: `BusRouteOption`에 `routeId`, `stops: BusStopOption[]`가 있으며, `busRoutesWithStops.json`에서 로드.
+- **data/terminalPresets**: 지하철 역은 `subwayStations.json`(Terminal Simulator의 `generate-subway-for-gui.cjs`로 생성)에서 로드, `getStationsByLine()`으로 1~9호선 노선별 역 목록(노선도 배치용). 버스는 **노선(route) + 정류장(stop) 2단계**: `BusRouteOption`에 `routeId`, `stops: BusStopOption[]`가 있으며, `busRoutesWithStops.json`에서 로드.
+- **data/stationCoordinates**: 노선도 역 (x,y) 계산. `stationCoordsFromPublic.json`(공공데이터 CSV 스크립트로 생성)에 역이 있으면 위경도→스키매틱 변환 좌표 사용, 없으면 anchor·순환선 폴백.
 - **data/emvStepDescriptions**: EMV 단계 제목별 한글 설명. 모달에서 단계별 설명 표시에 사용.
 - **utils/tcpClient**: Renderer에서 `window.electronAPI.tcp` 호출만 담당 (실제 소켓은 Main의 `tcpClient.ts`).
 - **utils/emvLogParser**: 카드 탭 응답 메시지를 `===== ... =====` 구간으로 파싱해 단계 배열로 반환. 모달에서 아코디언 표시에 사용.
@@ -172,6 +177,27 @@ terminal-simulator-gui/
   - **macOS**: PC/SC 프레임워크 내장. NFC 리더 연결 후 카드 탭 시 자동 인식.
   - **Linux**: `libpcsclite1`, `libpcsclite-dev`, `pcscd` 설치 후 `npm install` 및 필요 시 `electron-rebuild`.
   - **Windows**: WinSCard.dll 사용. 필요 시 `electron-rebuild` 권장.
+
+---
+
+## 지하철 노선도 공공데이터 좌표 (선택)
+
+노선도 역 배치를 **실제 위경도 기반**으로 쓰려면 공공데이터포털 CSV를 받아 스키매틱 좌표 JSON을 생성합니다.
+
+1. **CSV 다운로드** (로그인 없이 가능)
+   - **1~8호선**: [공공데이터포털 - 서울교통공사 1_8호선 역사좌표(위경도) 정보](https://www.data.go.kr/data/15099316/fileData.do) → CSV 다운로드
+   - **9호선** (선택): [서울교통공사 9호선 2_3단계 역사좌표](https://www.data.go.kr/data/15099317/fileData.do) → CSV 다운로드
+
+2. **스키매틱 JSON 생성**
+   ```bash
+   node scripts/generate-station-coords-from-csv.cjs <1-8호선.csv 경로> [9호선.csv 경로]
+   ```
+   예: `node scripts/generate-station-coords-from-csv.cjs ./서울교통공사_1_8호선\ 역사좌표\(위경도\)\ 정보_20250814.csv`
+   - 생성 파일: `src/data/stationCoordsFromPublic.json` (위경도 → 1000×800 뷰 선형 매핑)
+
+3. **동작**
+   - `stationCoordsFromPublic.json`에 역이 있으면 해당 역은 공공데이터 좌표로 표시됩니다.
+   - 비어 있거나 역이 없으면 기존 폴백(anchor·순환선 보간) 배치를 사용합니다.
 
 ---
 
