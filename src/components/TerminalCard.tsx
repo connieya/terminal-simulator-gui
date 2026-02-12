@@ -8,10 +8,10 @@ import {
   busRoutes,
   subwayStations,
   getSubwayJourneyLog,
-  getStationsByLine,
   type BusStopOption,
   type SubwayStationOption,
 } from "@/data/terminalPresets";
+import { LINE_COLORS } from "@/data/stationCoordinates";
 import { useJourneyStore } from "@/stores/journeyStore";
 
 interface TerminalCardProps {
@@ -32,6 +32,7 @@ export function TerminalCard({
   tcpConfig,
 }: TerminalCardProps) {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showDetail, setShowDetail] = useState(false);
   const effectiveTcpConfig = tcpConfig ?? DEFAULT_TCP_CONFIG;
   const { setTerminalPower, updateTerminal } = useTerminalStore();
   const { success, error: showError } = useToast();
@@ -58,7 +59,6 @@ export function TerminalCard({
         s.entryTerminalId === terminal.terminalId ||
         s.exitTerminalId === terminal.terminalId
     ) ?? null;
-  const stationOptions = isSubway ? subwayStations : (currentRoute?.stops ?? []);
   const currentOption = isSubway
     ? subwayStations.find(
         (station) =>
@@ -107,27 +107,6 @@ export function TerminalCard({
     }
     const busStop = selectedOption as BusStopOption;
     return terminal.type === "entry" ? busStop.entryPresetKey : busStop.exitPresetKey;
-  };
-
-  const handleStationChange = (id: string) => {
-    const nextOption = stationOptions.find((option) => option.id === id);
-    if (!nextOption) return;
-    const nextTerminalId =
-      terminal.type === "entry"
-        ? nextOption.entryTerminalId
-        : nextOption.exitTerminalId;
-    const nextStationName = isSubway
-      ? (nextOption as SubwayStationOption).name
-      : (nextOption as BusStopOption).stopName;
-    const nextLineName = isSubway
-      ? (nextOption as SubwayStationOption).line
-      : (currentRoute?.routeName ?? terminal.line);
-
-    updateTerminal(terminal.id, {
-      terminalId: nextTerminalId,
-      station: nextStationName,
-      line: nextLineName,
-    });
   };
 
   const handleTypeChange = (type: "entry" | "exit") => {
@@ -326,207 +305,143 @@ export function TerminalCard({
     }
   };
 
-  // 현재 모드 한 줄: "지하철 1호선 서울역 · 승차" / "버스 새벽A160 도봉산역 · 하차"
-  const currentModeLine =
-    [terminal.line, terminal.station].filter(Boolean).join(" ") +
-    (terminal.station ? " · " : "") +
-    (terminal.type === "entry" ? "승차" : "하차");
+  const lineName = resolveLineName();
+  const lineColor = isSubway && lineName ? (LINE_COLORS[lineName] ?? "#666") : "#666";
+  const displayStationName = terminal.station || (isSubway ? "역을 선택하세요" : "정류장을 선택하세요");
 
   const btnBase =
     "rounded-lg px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none";
 
   return (
-    <div className="rounded-xl border-2 border-border bg-card p-5 shadow-md transition-shadow hover:shadow-lg">
-      {/* 단말기 헤더: 제목 + 현재 위치 한 줄, 우측 상단에 Sign On / Sign Off */}
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="text-lg font-semibold text-foreground tracking-tight">
-            {terminal.name}
-          </h3>
-          {currentModeLine && (
-            <p className="mt-1 text-sm text-muted-foreground">
-              {isSubway ? "지하철 " : "버스 "}
-              {currentModeLine}
-            </p>
-          )}
-        </div>
-        <button
-          onClick={handlePowerToggle}
-          disabled={isProcessing}
-          className={`shrink-0 ${btnBase} ${
-            terminal.isPoweredOn
-              ? "bg-red-600 text-white hover:bg-red-700"
-              : "bg-emerald-600 text-white hover:bg-emerald-700"
-          }`}
-        >
-          {isProcessing
-            ? "처리 중..."
-            : terminal.isPoweredOn
-            ? "전원 끄기 (Sign Off)"
-            : "전원 켜기 (Sign On)"}
-        </button>
-      </div>
+    <div className="max-w-sm rounded-2xl border-2 border-slate-700 bg-slate-800/80 p-4 shadow-lg">
+      <p className="mb-2 text-xs font-medium text-slate-400">{terminal.name}</p>
 
-      {/* 전원/연결 상태: LED 스타일 한 블록 */}
-      <div className="mb-4 flex flex-wrap items-center gap-4 rounded-lg bg-muted/50 px-3 py-2">
+      {/* 상단 디스플레이 영역 */}
+      <div className="mb-4 rounded-xl bg-slate-900/90 px-4 py-4">
+        {/* 1행: 노선 뱃지 */}
         <div className="flex items-center gap-2">
           <span
-            className={`inline-block h-2.5 w-2.5 rounded-full shadow-sm ${
-              terminal.isPoweredOn
-                ? "bg-emerald-500 ring-2 ring-emerald-400/50"
-                : "bg-muted-foreground/40"
+            className="inline-block h-2 w-6 shrink-0 rounded-sm"
+            style={{ backgroundColor: lineColor }}
+            aria-hidden
+          />
+          <span className="text-sm font-medium text-slate-200">{lineName || "—"}</span>
+        </div>
+        {/* 2행: 역명/정류장명 (큰 글씨) */}
+        <p className="mt-3 text-2xl font-semibold tracking-tight text-white">
+          {displayStationName}
+        </p>
+        {/* 3행: 승차/하차 (두 칸 중 선택 강조) */}
+        <div className="mt-3 flex gap-2">
+          <button
+            type="button"
+            onClick={() => handleTypeChange("entry")}
+            disabled={isProcessing}
+            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${
+              terminal.type === "entry"
+                ? "bg-blue-600 text-white ring-2 ring-blue-400/50"
+                : "bg-slate-700 text-slate-400 hover:bg-slate-600"
+            }`}
+          >
+            승차
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTypeChange("exit")}
+            disabled={isProcessing}
+            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${
+              terminal.type === "exit"
+                ? "bg-green-600 text-white ring-2 ring-green-400/50"
+                : "bg-slate-700 text-slate-400 hover:bg-slate-600"
+            }`}
+          >
+            하차
+          </button>
+        </div>
+      </div>
+
+      {/* 상태 한 줄: 전원 · 연결 */}
+      <div className="mb-3 flex flex-wrap items-center gap-3 text-xs">
+        <div className="flex items-center gap-1.5">
+          <span
+            className={`inline-block h-2 w-2 rounded-full ${
+              terminal.isPoweredOn ? "bg-emerald-500" : "bg-slate-500"
             }`}
             title={terminal.isPoweredOn ? "전원 ON" : "전원 OFF"}
           />
-          <span className="text-xs font-medium text-muted-foreground">
-            {terminal.isPoweredOn ? "전원 ON" : "전원 OFF"}
-          </span>
+          <span className="text-slate-400">{terminal.isPoweredOn ? "전원 ON" : "전원 OFF"}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <span
-            className={`inline-block h-2.5 w-2.5 rounded-full shadow-sm ${
-              terminal.isConnected
-                ? "bg-blue-500 ring-2 ring-blue-400/50"
-                : "bg-muted-foreground/40"
+            className={`inline-block h-2 w-2 rounded-full ${
+              terminal.isConnected ? "bg-blue-500" : "bg-slate-500"
             }`}
             title={terminal.isConnected ? "연결됨" : "연결 안 됨"}
           />
-          <span className="text-xs font-medium text-muted-foreground">
-            {terminal.isConnected ? "연결됨" : "연결 안 됨"}
-          </span>
-        </div>
-        <span
-          className={`ml-auto px-2 py-0.5 text-xs font-medium rounded-md ${
-            terminal.type === "entry"
-              ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
-              : "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
-          }`}
-        >
-          {terminal.type === "entry" ? "승차" : "하차"}
-        </span>
-      </div>
-
-      {/* 상세: 노선/역, Terminal ID */}
-      <div className="space-y-1 mb-4 text-sm text-muted-foreground">
-        {terminal.line && <p>{terminal.line}</p>}
-        {terminal.station && (
-          <p>{isSubway ? "역" : "정류장"}: {terminal.station}</p>
-        )}
-        {isSubway && selectedOption && (
-          <p className="text-xs font-mono">
-            Station ID:{" "}
-            <span className="font-semibold text-foreground">
-              {(selectedOption as SubwayStationOption).stationId}
-            </span>
-          </p>
-        )}
-        <p className="text-xs font-mono">
-          Terminal ID:{" "}
-          <span className="font-semibold text-foreground">{terminal.terminalId}</span>
-        </p>
-      </div>
-
-      {/* 위치/승하차 선택 */}
-      <div className="space-y-3 mb-4">
-        {isSubway ? (
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
-              역 선택
-            </label>
-            <select
-              value={selectedOption?.id ?? ""}
-              onChange={(event) => handleStationChange(event.target.value)}
-              disabled={isProcessing}
-              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-            >
-              {(() => {
-                const byLine = getStationsByLine();
-                const lineOrder = ["1호선", "2호선", "3호선", "4호선"];
-                return lineOrder.map((lineKey) => {
-                  const stations = byLine[lineKey] ?? [];
-                  if (!stations.length) return null;
-                  return (
-                    <optgroup key={lineKey} label={lineKey}>
-                      {stations.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  );
-                });
-              })()}
-            </select>
-          </div>
-        ) : (
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
-              정류장 선택
-            </label>
-            <select
-              value={selectedOption?.id ?? ""}
-              onChange={(event) => handleStationChange(event.target.value)}
-              disabled={isProcessing || !currentRoute}
-              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-            >
-              {!currentRoute ? (
-                <option value="">노선을 먼저 선택하세요 (노선도에서 클릭)</option>
-              ) : (
-                currentRoute.stops.map((stop) => (
-                  <option key={stop.id} value={stop.id}>
-                    {stop.stopName}
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
-        )}
-        <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">
-            승차/하차
-          </label>
-          <select
-            value={terminal.type}
-            onChange={(event) =>
-              handleTypeChange(event.target.value as "entry" | "exit")
-            }
-            disabled={isProcessing}
-            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-          >
-            <option value="entry">승차</option>
-            <option value="exit">하차</option>
-          </select>
+          <span className="text-slate-400">{terminal.isConnected ? "연결됨" : "연결 안 됨"}</span>
         </div>
       </div>
 
-      {/* 전원 ON 시: Echo Test, Sync, 카드 탭 */}
+      {/* 전원 버튼 */}
+      <button
+        onClick={handlePowerToggle}
+        disabled={isProcessing}
+        className={`mb-4 w-full ${btnBase} ${
+          terminal.isPoweredOn
+            ? "bg-red-600 text-white hover:bg-red-700"
+            : "bg-emerald-600 text-white hover:bg-emerald-700"
+        }`}
+      >
+        {isProcessing ? "처리 중..." : terminal.isPoweredOn ? "전원 끄기 (Sign Off)" : "전원 켜기 (Sign On)"}
+      </button>
+
+      {/* 전원 ON 시: Sync · Echo Test (보조) → 카드 탭 (메인) */}
       {terminal.isPoweredOn && (
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={handleEchoTest}
-              disabled={isProcessing}
-              className={`${btnBase} bg-blue-600 text-white hover:bg-blue-700`}
-            >
-              Echo Test
-            </button>
-            <button
               onClick={handleSync}
               disabled={isProcessing}
-              className={`${btnBase} bg-violet-600 text-white hover:bg-violet-700`}
+              className={`${btnBase} bg-slate-600 text-slate-200 hover:bg-slate-500 text-xs`}
             >
               Sync
+            </button>
+            <button
+              onClick={handleEchoTest}
+              disabled={isProcessing}
+              className={`${btnBase} bg-slate-600 text-slate-200 hover:bg-slate-500 text-xs`}
+            >
+              Echo Test
             </button>
           </div>
           <button
             onClick={handleCardTap}
             disabled={isProcessing}
-            className={`w-full ${btnBase} bg-amber-500 text-white hover:bg-amber-600 font-medium`}
+            className={`w-full rounded-xl py-4 text-base font-semibold text-slate-900 bg-amber-400 hover:bg-amber-300 transition-colors disabled:opacity-50 disabled:pointer-events-none`}
           >
             {isProcessing ? "처리 중..." : "카드 탭"}
           </button>
         </div>
       )}
+
+      {/* 부가 정보: 접이식 */}
+      <div className="mt-3 border-t border-slate-600 pt-2">
+        <button
+          type="button"
+          onClick={() => setShowDetail(!showDetail)}
+          className="text-xs text-slate-500 hover:text-slate-400"
+        >
+          {showDetail ? "상세 정보 접기" : "상세 정보"}
+        </button>
+        {showDetail && (
+          <div className="mt-2 space-y-1 text-xs font-mono text-slate-500">
+            <p>Terminal ID: {terminal.terminalId}</p>
+            {isSubway && selectedOption && (
+              <p>Station ID: {(selectedOption as SubwayStationOption).stationId}</p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
