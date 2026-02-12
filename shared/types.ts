@@ -82,6 +82,9 @@ export type TcpConnectionConfig = {
   reconnectInterval?: number // 재연결 간격 (ms)
 }
 
+/** 직접 거래(TPS) 서버 기본 포트. electron tcpClient에서 TLV 모드 판별에 사용 */
+export const DIRECT_TRADE_PORT = 21000
+
 // 기본 TCP 설정
 export const DEFAULT_TCP_CONFIG: TcpConnectionConfig = {
   host: 'localhost',

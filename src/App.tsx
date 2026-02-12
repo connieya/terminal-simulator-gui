@@ -1,11 +1,37 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect, useRef } from 'react'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { ToastProvider } from './contexts/ToastContext'
 import { LeftTabs } from './components/LeftTabs'
 import { SimulatorPage } from './pages/SimulatorPage'
 import { DirectTradePage } from './pages/DirectTradePage'
+import { tcpClient } from './utils/tcpClient'
+import { useTerminalStore } from './stores/terminalStore'
 import './App.css'
 
 function App() {
+  const location = useLocation()
+  const prevPathRef = useRef<string | null>(null)
+  const setTerminalPower = useTerminalStore((s) => s.setTerminalPower)
+  const setTerminalConnected = useTerminalStore((s) => s.setTerminalConnected)
+  const terminalId = useTerminalStore((s) => s.terminals[0]?.id)
+
+  useEffect(() => {
+    const pathname = location.pathname
+    const prev = prevPathRef.current
+    if (
+      prev !== null &&
+      ((prev === '/simulator' && pathname === '/direct') ||
+        (prev === '/direct' && pathname === '/simulator'))
+    ) {
+      tcpClient.disconnect().catch(() => {})
+      if (terminalId) {
+        setTerminalPower(terminalId, false)
+        setTerminalConnected(terminalId, false)
+      }
+    }
+    prevPathRef.current = pathname
+  }, [location.pathname, terminalId, setTerminalPower, setTerminalConnected])
+
   return (
     <ToastProvider>
       <div className="flex min-h-screen bg-background overflow-hidden">

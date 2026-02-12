@@ -1,6 +1,9 @@
 import { Socket } from "net";
+import { DIRECT_TRADE_PORT } from "../shared/types.js";
+import { encodeSignOnRequest, encodeFrame, decodeResponseMessage, } from "./tlvCodec.js";
 /**
  * Java Terminal Simulator와의 TCP 통신을 담당하는 클라이언트
+ * port === DIRECT_TRADE_PORT(21000)일 때 TPS TLV 프로토콜 사용
  */
 export class TcpClient {
     socket = null;
@@ -10,6 +13,7 @@ export class TcpClient {
     messageBuffer = "";
     responseBuffer = []; // 여러 줄 응답을 모으기 위한 버퍼
     currentCommandType = null; // 현재 실행 중인 명령 타입
+    tlvBuffer = Buffer.alloc(0); // TLV 모드 시 length-prefixed 수신 버퍼
     constructor(config) {
         this.config = config;
     }
@@ -58,10 +62,14 @@ export class TcpClient {
      */
     disconnect() {
         this.clearReconnectTimer();
+        this.tlvBuffer = Buffer.alloc(0);
         if (this.socket) {
             this.socket.destroy();
             this.socket = null;
         }
+    }
+    isTlvMode() {
+        return this.config.port === DIRECT_TRADE_PORT;
     }
     /**
      * 역 이름을 영어 소문자로 변환 (config 파일 형식에 맞춤).
@@ -252,11 +260,21 @@ export class TcpClient {
     }
     /**
      * Java Terminal Simulator에 CLI 또는 GUI JSON 명령 전송
-     * signon/sync/card_tap 이고 journeyLog+terminalId 있으면 JSON 전송 (TerminalConfig 미참조)
+     * TLV 모드(직접 거래 21000)일 때는 Sign On만 TLV로 전송
      */
     async sendCommand(command) {
         if (!this.socket || this.socket.readyState !== "open") {
             throw new Error("Not connected to terminal simulator");
+        }
+        if (this.isTlvMode()) {
+            if (command.type === "signon") {
+                return this.sendTlvSignOn(command);
+            }
+            return Promise.resolve({
+                success: false,
+                message: `직접 거래 모드에서는 Sign On만 지원합니다. (요청: ${command.type})`,
+                timestamp: Date.now(),
+            });
         }
         return new Promise((resolve, reject) => {
             const hasTerminalId = command.terminalId && String(command.terminalId).trim();
@@ -275,18 +293,37 @@ export class TcpClient {
             const timeout = setTimeout(() => {
                 reject(new Error("Command timeout"));
             }, 10000); // 10초 타임아웃
-            // 응답 버퍼 초기화 (새 명령 전송 시)
             this.responseBuffer = [];
-            this.currentCommandType = command.type; // 현재 명령 타입 저장
-            // 응답을 기다리는 리스너 (일회성)
+            this.currentCommandType = command.type;
             const responseHandler = (response) => {
                 clearTimeout(timeout);
-                this.currentCommandType = null; // 응답 처리 후 초기화
+                this.currentCommandType = null;
                 resolve(response);
             };
-            // 임시로 응답 핸들러 등록 (실제 구현은 handleData에서 처리)
             this.onceResponse(responseHandler);
             this.socket.write(message, (error) => {
+                if (error) {
+                    clearTimeout(timeout);
+                    reject(error);
+                }
+            });
+        });
+    }
+    async sendTlvSignOn(command) {
+        const terminalId = (command.terminalId && String(command.terminalId).trim()) || "GUI-TERMINAL-01";
+        const body = encodeSignOnRequest(terminalId);
+        const frame = encodeFrame(body);
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error("Command timeout"));
+            }, 10000);
+            const responseHandler = (response) => {
+                clearTimeout(timeout);
+                resolve(response);
+            };
+            this.onceResponse(responseHandler);
+            console.log("Sending TLV Sign On to TPS");
+            this.socket.write(frame, (error) => {
                 if (error) {
                     clearTimeout(timeout);
                     reject(error);
@@ -385,10 +422,39 @@ export class TcpClient {
         return (lastLine === "OK" || lastLine === "ERROR" || lastLine.startsWith("ERROR:"));
     }
     /**
+     * TLV 모드: length-prefixed(2바이트 BE) 프레임 수신 후 ResponseMessage 디코딩
+     */
+    handleTlvData(data) {
+        this.tlvBuffer = Buffer.concat([this.tlvBuffer, data]);
+        while (this.tlvBuffer.length >= 2) {
+            const len = this.tlvBuffer.readUInt16BE(0);
+            if (this.tlvBuffer.length < 2 + len)
+                break;
+            const body = this.tlvBuffer.subarray(2, 2 + len);
+            this.tlvBuffer = this.tlvBuffer.subarray(2 + len);
+            try {
+                const { success, message } = decodeResponseMessage(body);
+                this.emitResponse({ success, message, timestamp: Date.now() });
+            }
+            catch (e) {
+                console.error("TLV response decode error:", e);
+                this.emitResponse({
+                    success: false,
+                    message: String(e),
+                    timestamp: Date.now(),
+                });
+            }
+        }
+    }
+    /**
      * 데이터 수신 처리
-     * Java 서버가 JSON 또는 텍스트 응답을 보낼 수 있음
+     * TLV 모드(21000)일 때는 handleTlvData, 아니면 JSON/텍스트
      */
     handleData(data) {
+        if (this.isTlvMode()) {
+            this.handleTlvData(data);
+            return;
+        }
         this.messageBuffer += data.toString();
         // 줄바꿈으로 메시지 구분
         const lines = this.messageBuffer.split("\n");
