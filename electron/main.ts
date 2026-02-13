@@ -171,6 +171,29 @@ function setupIpcHandlers() {
     }
   });
 
+  // 직접 거래: ICC Data 수집 후 TPS Authorization 요청 전송
+  ipcMain.handle(
+    "tcp:sendAuthorization",
+    async (
+      _,
+      params: { terminalId: string; iccDataHex: string; journeyLog?: string },
+    ) => {
+      try {
+        if (!tcpClient || !tcpClient.isConnected()) {
+          throw new Error("TPS에 연결되지 않았습니다");
+        }
+        const response = await tcpClient.sendTlvAuthorization(params);
+        return { success: true, response };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+          response: undefined,
+        };
+      }
+    },
+  );
+
   // 카드 탭 트리거 (편의 함수)
   ipcMain.handle(
     "tcp:tapCard",

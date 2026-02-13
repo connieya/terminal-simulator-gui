@@ -21,6 +21,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
     sendCommand: (command: any) =>
       ipcRenderer.invoke("tcp:sendCommand", command),
 
+    // 직접 거래: ICC Data 수집 후 TPS Authorization 전송
+    sendAuthorization: (params: {
+      terminalId: string;
+      iccDataHex: string;
+      journeyLog?: string;
+    }) => ipcRenderer.invoke("tcp:sendAuthorization", params),
+
     // 카드 탭 트리거 (편의 함수)
     tapCard: (cardData?: any) => ipcRenderer.invoke("tcp:tapCard", cardData),
   },

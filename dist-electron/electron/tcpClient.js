@@ -1,6 +1,6 @@
 import { Socket } from "net";
 import { DIRECT_TRADE_PORT } from "../shared/types.js";
-import { encodeSignOnRequest, encodeFrame, decodeResponseMessage, } from "./tlvCodec.js";
+import { encodeSignOnRequest, encodeAuthorizationRequest, encodeFrame, decodeResponseMessage, } from "./tlvCodec.js";
 /**
  * Java Terminal Simulator와의 TCP 통신을 담당하는 클라이언트
  * port === DIRECT_TRADE_PORT(21000)일 때 TPS TLV 프로토콜 사용
@@ -345,6 +345,36 @@ export class TcpClient {
             };
             this.onceResponse(responseHandler);
             console.log("Sending TLV Sign On to TPS");
+            this.socket.write(frame, (error) => {
+                if (error) {
+                    clearTimeout(timeout);
+                    reject(error);
+                }
+            });
+        });
+    }
+    /**
+     * TLV 모드(21000)에서 ICC Data 수집 후 TPS로 Authorization 요청 전송
+     */
+    async sendTlvAuthorization(params) {
+        if (!this.socket || this.socket.readyState !== "open") {
+            throw new Error("Not connected to TPS");
+        }
+        if (!this.isTlvMode()) {
+            throw new Error("Authorization is only supported in direct trade (TLV) mode");
+        }
+        const body = encodeAuthorizationRequest(params);
+        const frame = encodeFrame(body);
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error("Authorization timeout"));
+            }, 15000);
+            const responseHandler = (response) => {
+                clearTimeout(timeout);
+                resolve(response);
+            };
+            this.onceResponse(responseHandler);
+            console.log("Sending TLV Authorization to TPS");
             this.socket.write(frame, (error) => {
                 if (error) {
                     clearTimeout(timeout);

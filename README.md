@@ -108,7 +108,7 @@ terminal-simulator-gui/
 - **TerminalWorkspace**: 공통 레이아웃 컴포넌트. **왼쪽**에 통합 노선도+단말기 1대, **가운데**에 여정, **오른쪽**에 TCP 통신 로그. `tcpConfig` 전달 시 해당 주소로 연결(미전달 시 시뮬레이터 기본). `EmvTransactionDetailModal` 상태 관리 포함.
 - **기능 모드**
   - **EMV 시뮬레이터 연동**: GUI → Java Terminal Simulator(TCP). 전원 on/off, Sync, Echo, 카드 탭이 모두 TCP 명령으로 처리.
-  - **EMV 직접 거래**: Sign On 시 **TPS 서버에 직접 연결**(시뮬레이터 경유 없음). Echo, Sync, 카드 탭 등 동일하게 사용.
+  - **EMV 직접 거래**: Sign On 시 **TPS 서버에 직접 연결**(시뮬레이터 경유 없음). 카드 탭 시 **실제 리더에서 카드 태그 → EMV Contactless(PPSE→AID→GPO→Read Record)로 ICC Data 수집 → TPS Authorization 요청 전송** → 승차/하차 결과 표시.
 - **TerminalCard**: 선택적 `tcpConfig` 전달 시 Sign On 시 해당 설정으로 연결(미전달 시 기본 시뮬레이터 주소). 전원·Sync·Echo·카드 탭 모두 `tcpClient.sendCommand`로 처리.
 - **UnifiedRouteMap**: 노선도 한 패널. 상단에서 지하철/버스 선택. 지하철 선택 시 **모든 노선(1~9호선)을 한 화면**에 표시. 노선/역 클릭 시 동일 단말기 데이터 갱신.
 - **SubwayMap**: `subwayStations`(subwayStations.json) 기반 노선도. 1~9호선 전체를 노선별 색상으로 표시. 역 좌표는 **공공데이터 위경도 CSV**로 생성한 `stationCoordsFromPublic.json`이 있으면 사용하고, 없으면 폴백(anchor 보간) 배치. 역 클릭 시 단일 단말기의 역 정보 갱신(transitType: subway).
@@ -163,8 +163,8 @@ terminal-simulator-gui/
   - Payload: 타입별 TLV (SignOnRequest, EchoTestRequest 등). payloadType 예: TLV_UNCOMPRESSED(0x01).
 - **수신**: 동일하게 2바이트 Length + ResponseMessage(ResponseHeader + Payload + MAC).
 
-참고 코드: `psp-api-terminal`의 `RequestMessage`, `RequestHeader`, `MessageType`, `SignOnRequest`, `EchoTestRequest` 등. 서버 채널: `psp-server-tps`의 `TerminalTlvServer`.  
-현재 GUI는 JSON 기반 tcpClient만 사용하므로, TPS와 실제 통신하려면 TLV 인코딩/디코딩을 수행하는 전용 클라이언트 구현이 필요하다.
+참고 코드: `psp-api-terminal`의 `RequestMessage`, `RequestHeader`, `MessageType`, `SignOnRequest`, `AuthorizationRequest` 등. 서버 채널: `psp-server-tps`의 `TerminalTlvServer`, `TerminalAuthorizationProcessor`.  
+GUI 직접 거래(포트 21000) 시 **electron/tlvCodec.ts**에서 TLV 인코딩(Sign On, Authorization), **electron/tcpClient.ts**에서 length-prefix 프레임 전송 및 응답 수신을 수행한다.
 
 ---
 

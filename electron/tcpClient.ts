@@ -8,6 +8,7 @@ import type {
 import { DIRECT_TRADE_PORT } from "../shared/types.js";
 import {
   encodeSignOnRequest,
+  encodeAuthorizationRequest,
   encodeFrame,
   decodeResponseMessage,
 } from "./tlvCodec.js";
@@ -407,6 +408,45 @@ export class TcpClient {
       this.onceResponse(responseHandler);
 
       console.log("Sending TLV Sign On to TPS");
+      this.socket!.write(frame, (error) => {
+        if (error) {
+          clearTimeout(timeout);
+          reject(error);
+        }
+      });
+    });
+  }
+
+  /**
+   * TLV 모드(21000)에서 ICC Data 수집 후 TPS로 Authorization 요청 전송
+   */
+  async sendTlvAuthorization(params: {
+    terminalId: string;
+    iccDataHex: string;
+    journeyLog?: string;
+  }): Promise<TerminalResponse> {
+    if (!this.socket || this.socket.readyState !== "open") {
+      throw new Error("Not connected to TPS");
+    }
+    if (!this.isTlvMode()) {
+      throw new Error("Authorization is only supported in direct trade (TLV) mode");
+    }
+
+    const body = encodeAuthorizationRequest(params);
+    const frame = encodeFrame(body);
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error("Authorization timeout"));
+      }, 15000);
+
+      const responseHandler = (response: TerminalResponse) => {
+        clearTimeout(timeout);
+        resolve(response);
+      };
+      this.onceResponse(responseHandler);
+
+      console.log("Sending TLV Authorization to TPS");
       this.socket!.write(frame, (error) => {
         if (error) {
           clearTimeout(timeout);

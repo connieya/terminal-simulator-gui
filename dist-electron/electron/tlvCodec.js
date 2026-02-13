@@ -9,9 +9,10 @@ const MAC_LENGTH = 8;
 const MAGIC_TERMINAL = Buffer.from("TRM", "ascii");
 const VERSION = 0x01;
 const MESSAGE_TYPE_SIGN_ON = 0x01;
+const MESSAGE_TYPE_AUTHORIZATION = 0x03;
 const PAYLOAD_TYPE_TLV = 0x01;
 const TERMINAL_ID_LENGTH = 32;
-// TopsTag (BER-TLV 단일 바이트 태그)
+// TopsTag (BER-TLV)
 const TAG_REQUEST_TEMPLATE = 0x21;
 const TAG_TERMINAL_FW_VERSION = 0x82;
 const TAG_TERMINAL_PARAMS_VERSION = 0x83;
@@ -43,6 +44,13 @@ function writeTlv(tag, value) {
     if (len >= 128)
         throw new Error("TLV length >= 128 not implemented");
     return Buffer.concat([Buffer.from([tag, len]), value]);
+}
+/** 2바이트 태그 TLV (예: 9F06, DF63) */
+function writeTlv2(tag1, tag2, value) {
+    const len = value.length;
+    if (len >= 128)
+        throw new Error("TLV length >= 128 not implemented");
+    return Buffer.concat([Buffer.from([tag1, tag2, len]), value]);
 }
 /**
  * Sign On 요청용 RequestMessage 인코딩
@@ -79,6 +87,59 @@ export function encodeSignOnRequest(terminalId) {
     const body = Buffer.concat([header, payload, mac]);
     return body;
 }
+// Authorization Request TopsTag (psp-api-terminal AuthorizationRequest.encode()와 동일)
+const TAG_TRANSMISSION_TIME = 0x9a;
+const TAG_STAN_9F06 = 0x9f;
+const TAG_STAN_9F06_2 = 0x06;
+const TAG_TERMINAL_ID = 0x81;
+const TAG_ICC_DATA = 0x55;
+const TAG_JOURNEY_LOG_DF = 0xdf;
+const TAG_JOURNEY_LOG_63 = 0x63;
+/**
+ * Authorization 요청용 RequestMessage 인코딩
+ * Body = RequestHeader(42) + REQUEST_TEMPLATE(21) 내부 9A, 9F06, 81, 55, [DF63] + MAC(8)
+ * 서버 TerminalAuthorizationProcessor / AuthorizationRequest.parseRequestTemplate() 형식과 호환
+ */
+export function encodeAuthorizationRequest(params) {
+    const { terminalId, iccDataHex, journeyLog } = params;
+    const now = new Date();
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const dd = String(now.getDate()).padStart(2, "0");
+    const hh = String(now.getHours()).padStart(2, "0");
+    const min = String(now.getMinutes()).padStart(2, "0");
+    const ss = String(now.getSeconds()).padStart(2, "0");
+    const transmissionTime = `${mm}${dd}${hh}${min}${ss}`;
+    const stan = String(Math.floor(100000 + Math.random() * 900000));
+    const terminalIdBytes = Buffer.alloc(TERMINAL_ID_LENGTH);
+    const idSrc = Buffer.from(terminalId.slice(0, TERMINAL_ID_LENGTH), "ascii");
+    idSrc.copy(terminalIdBytes, 0);
+    const innerParts = [
+        writeTlv(TAG_TRANSMISSION_TIME, Buffer.from(transmissionTime, "ascii")),
+        writeTlv2(TAG_STAN_9F06, TAG_STAN_9F06_2, Buffer.from(stan, "ascii")),
+        writeTlv(TAG_TERMINAL_ID, terminalIdBytes),
+        writeTlv(TAG_ICC_DATA, Buffer.from(iccDataHex, "hex")),
+    ];
+    if (journeyLog != null && journeyLog.length > 0) {
+        innerParts.push(writeTlv2(TAG_JOURNEY_LOG_DF, TAG_JOURNEY_LOG_63, Buffer.from(journeyLog, "ascii")));
+    }
+    const requestTemplateInner = Buffer.concat(innerParts);
+    const payload = writeTlv(TAG_REQUEST_TEMPLATE, requestTemplateInner);
+    const header = Buffer.alloc(HEADER_LENGTH);
+    let off = 0;
+    MAGIC_TERMINAL.copy(header, off);
+    off += 3;
+    header[off++] = VERSION;
+    header[off++] = MESSAGE_TYPE_AUTHORIZATION;
+    header[off++] = 0x00;
+    header[off++] = 0x01;
+    header[off++] = PAYLOAD_TYPE_TLV;
+    terminalIdBytes.copy(header, off);
+    off += TERMINAL_ID_LENGTH;
+    header[off++] = 0x00;
+    header[off++] = 0x00;
+    const mac = calculateMac(header, payload);
+    return Buffer.concat([header, payload, mac]);
+}
 /**
  * 2바이트 big-endian length prefix 붙인 프레임으로 반환
  */
@@ -99,6 +160,6 @@ export function decodeResponseMessage(body) {
     const statusByte2 = body[8];
     const success = statusByte1 === 0x00 && statusByte2 === 0x00;
     const codeHex = Buffer.from([statusByte1, statusByte2]).toString("hex").toUpperCase();
-    const message = success ? "Sign On 성공" : `응답 코드: ${codeHex}`;
+    const message = success ? "성공" : `응답 코드: ${codeHex}`;
     return { success, message };
 }
