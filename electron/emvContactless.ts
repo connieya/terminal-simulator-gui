@@ -117,7 +117,14 @@ function buildPdolValueForItem(item: PdolItem): Buffer {
   const t2 = tag.length >= 2 ? tag[1]! : null;
   const pad = (n: number) => Buffer.alloc(n, 0);
 
-  if (t1 === 0x9f && t2 === 0x66) return pad(length); // Optional
+  if (t1 === 0x9f && t2 === 0x66) {
+    // TTQ (Terminal Transaction Qualifiers): 카드가 단말의 컨택리스 지원 여부를 판단하는 핵심 값
+    // 36 00 00 00 (payWave 예시): qVSDC 지원 + EMV contact chip 지원 + Signature + ODA 지원
+    const b = pad(length);
+    const ttq = Buffer.from([0x36, 0x00, 0x00, 0x00]);
+    ttq.copy(b, 0, 0, Math.min(ttq.length, b.length));
+    return b;
+  }
   if (t1 === 0x9f && t2 === 0x02) return pad(length); // Amount Authorized (BCD) 0
   if (t1 === 0x9f && t2 === 0x03) return pad(length); // Amount Other
   if (t1 === 0x9f && t2 === 0x1a) {
@@ -148,7 +155,7 @@ function buildPdolValueForItem(item: PdolItem): Buffer {
     }
     return pad(length);
   }
-  if (t1 === 0x9c) return Buffer.from([0x00]); // Transaction Type: purchase
+  if (t1 === 0x9c) return Buffer.from([0x00]); // Transaction Type: Purchase (일반 결제)
   if (t1 === 0x9f && t2 === 0x37) {
     const buf = Buffer.alloc(length);
     for (let i = 0; i < length; i++) buf[i] = Math.floor(Math.random() * 256);
