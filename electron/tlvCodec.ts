@@ -11,6 +11,7 @@ const MAC_LENGTH = 8
 const MAGIC_TERMINAL = Buffer.from("TRM", "ascii")
 const VERSION = 0x01
 const MESSAGE_TYPE_SIGN_ON = 0x01
+const MESSAGE_TYPE_AUTHORIZATION = 0x02
 const PAYLOAD_TYPE_TLV = 0x01
 const TERMINAL_ID_LENGTH = 32
 
@@ -22,6 +23,8 @@ const TAG_TERMINAL_DENYLIST_VERSION = 0x84
 const TAG_TERMINAL_BINLIST_VERSION = 0x85
 const TAG_TERMINAL_UTC_UNIX_TIME = 0x86
 const TAG_ORPHAN_FILE = 0xaa
+const TAG_ICC_DATA = 0x57 // EMV Tag 57: Track 2 Equivalent Data
+const TAG_JOURNEY_LOG = 0x9f // 임시 태그 (실제 프로토콜에 맞게 수정 필요)
 
 /** psp-api-terminal MacCalculator.DEFAULT_KEY와 동일 (개발/테스트용). 운영에서는 TPS_MAC_KEY 환경 변수 사용 권장 */
 const DEFAULT_MAC_KEY = Buffer.from([
@@ -81,6 +84,53 @@ export function encodeSignOnRequest(terminalId: string): Buffer {
     writeTlv(TAG_TERMINAL_UTC_UNIX_TIME, zero),
     writeTlv(TAG_ORPHAN_FILE, Buffer.alloc(0)),
   ])
+  const payload = writeTlv(TAG_REQUEST_TEMPLATE, inner)
+
+  const mac = calculateMac(header, payload)
+  const body = Buffer.concat([header, payload, mac])
+  return body
+}
+
+/**
+ * Authorization 요청용 RequestMessage 인코딩
+ * Body = RequestHeader(42) + AuthorizationRequest TLV payload + MAC(8)
+ */
+export function encodeAuthorizationRequest(params: {
+  terminalId: string;
+  iccDataHex: string;
+  journeyLog?: string;
+}): Buffer {
+  const terminalIdBytes = Buffer.alloc(TERMINAL_ID_LENGTH)
+  const idSrc = Buffer.from(params.terminalId.slice(0, TERMINAL_ID_LENGTH), "ascii")
+  idSrc.copy(terminalIdBytes, 0)
+
+  const header = Buffer.alloc(HEADER_LENGTH)
+  let off = 0
+  MAGIC_TERMINAL.copy(header, off); off += 3
+  header[off++] = VERSION
+  header[off++] = MESSAGE_TYPE_AUTHORIZATION
+  header[off++] = 0x00
+  header[off++] = 0x01
+  header[off++] = PAYLOAD_TYPE_TLV
+  terminalIdBytes.copy(header, off); off += TERMINAL_ID_LENGTH
+  header[off++] = 0x00
+  header[off++] = 0x00
+
+  // ICC 데이터를 hex 문자열에서 Buffer로 변환
+  const iccData = Buffer.from(params.iccDataHex, "hex")
+
+  // TLV 페이로드 구성
+  const tlvItems: Buffer[] = [
+    writeTlv(TAG_ICC_DATA, iccData),
+  ]
+
+  // journeyLog가 있으면 추가
+  if (params.journeyLog) {
+    const journeyLogBytes = Buffer.from(params.journeyLog, "utf-8")
+    tlvItems.push(writeTlv(TAG_JOURNEY_LOG, journeyLogBytes))
+  }
+
+  const inner = Buffer.concat(tlvItems)
   const payload = writeTlv(TAG_REQUEST_TEMPLATE, inner)
 
   const mac = calculateMac(header, payload)
