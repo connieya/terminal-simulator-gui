@@ -4,7 +4,15 @@
  */
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
-const pcscliteFactory = require("pcsclite");
+// pcsclite는 네이티브 모듈이므로 로드 실패 시 선택적으로 처리
+let pcscliteFactory = null;
+try {
+    pcscliteFactory = require("pcsclite");
+}
+catch (err) {
+    console.warn("[CardReader] pcsclite 모듈을 로드할 수 없습니다:", err);
+    console.warn("[CardReader] 카드 리더 기능이 비활성화됩니다.");
+}
 /** PC/SC 카드 감지 상태 (카드가 리더에 있음) */
 const SCARD_STATE_PRESENT = 0x20;
 let pcscInstance = null;
@@ -14,6 +22,9 @@ let connectedReaderName = null;
 let connectedProtocol = null;
 /** PC/SC 초기화. 한 번만 생성 */
 function ensurePcsc() {
+    if (!pcscliteFactory) {
+        throw new Error("pcsclite 모듈을 사용할 수 없습니다. 카드 리더 기능이 비활성화되어 있습니다.");
+    }
     if (!pcscInstance) {
         pcscInstance = pcscliteFactory();
         pcscInstance.on("error", (err) => {
@@ -27,37 +38,54 @@ function ensurePcsc() {
  * PC/SC가 비동기로 리더를 채우므로 짧은 대기 후 반환
  */
 export function listReaders() {
-    const pcsc = ensurePcsc();
-    return new Promise((resolve) => {
-        const timeout = 600;
-        setTimeout(() => {
-            const names = Object.keys(pcsc.readers || {});
-            resolve(names);
-        }, timeout);
-    });
+    if (!pcscliteFactory) {
+        return Promise.resolve([]);
+    }
+    try {
+        const pcsc = ensurePcsc();
+        return new Promise((resolve) => {
+            const timeout = 600;
+            setTimeout(() => {
+                const names = Object.keys(pcsc.readers || {});
+                resolve(names);
+            }, timeout);
+        });
+    }
+    catch (err) {
+        console.warn("[CardReader] listReaders 실패:", err);
+        return Promise.resolve([]);
+    }
 }
 /**
  * 지정한 리더에 연결
  */
 export function connectReader(readerName) {
-    const pcsc = ensurePcsc();
-    const reader = pcsc.readers?.[readerName];
-    if (!reader) {
-        return Promise.reject(new Error(`리더를 찾을 수 없음: ${readerName}`));
+    if (!pcscliteFactory) {
+        return Promise.reject(new Error("pcsclite 모듈을 사용할 수 없습니다."));
     }
-    return new Promise((resolve, reject) => {
-        const shareMode = reader.SCARD_SHARE_SHARED ?? reader.SCARD_SHARE_EXCLUSIVE ?? 2;
-        const protocol = (reader.SCARD_PROTOCOL_T0 ?? 1) | (reader.SCARD_PROTOCOL_T1 ?? 2);
-        reader.connect({ share_mode: shareMode, protocol }, (err, protocolEstablished) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            connectedReaderName = readerName;
-            connectedProtocol = protocolEstablished ?? protocol ?? 0;
-            resolve();
+    try {
+        const pcsc = ensurePcsc();
+        const reader = pcsc.readers?.[readerName];
+        if (!reader) {
+            return Promise.reject(new Error(`리더를 찾을 수 없음: ${readerName}`));
+        }
+        return new Promise((resolve, reject) => {
+            const shareMode = reader.SCARD_SHARE_SHARED ?? reader.SCARD_SHARE_EXCLUSIVE ?? 2;
+            const protocol = (reader.SCARD_PROTOCOL_T0 ?? 1) | (reader.SCARD_PROTOCOL_T1 ?? 2);
+            reader.connect({ share_mode: shareMode, protocol }, (err, protocolEstablished) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                connectedReaderName = readerName;
+                connectedProtocol = protocolEstablished ?? protocol ?? 0;
+                resolve();
+            });
         });
-    });
+    }
+    catch (err) {
+        return Promise.reject(err);
+    }
 }
 /**
  * 현재 연결된 리더 연결 해제
@@ -85,6 +113,9 @@ export function disconnectReader() {
  * 연결된 리더로 APDU 전송 (EMV 트랜잭션용)
  */
 export function transmitApdu(command, maxResponseLength = 256) {
+    if (!pcscliteFactory) {
+        return Promise.reject(new Error("pcsclite 모듈을 사용할 수 없습니다."));
+    }
     if (!connectedReaderName ||
         connectedProtocol == null ||
         !pcscInstance?.readers) {
@@ -143,12 +174,27 @@ const DEFAULT_WAIT_CARD_TIMEOUT_MS = 30_000;
  * 리더에 카드가 없으면 SCardConnect가 실패하므로, status 이벤트로 카드 감지 후 connect
  */
 export function waitForCardAndConnect(options) {
+    if (!pcscliteFactory) {
+        return Promise.resolve({
+            success: false,
+            error: "pcsclite 모듈을 사용할 수 없습니다. 카드 리더 기능이 비활성화되어 있습니다.",
+        });
+    }
     const status = getConnectionStatus();
     if (status.connected && status.readerName) {
         return Promise.resolve({ success: true, readerName: status.readerName });
     }
     const timeoutMs = options?.timeoutMs ?? DEFAULT_WAIT_CARD_TIMEOUT_MS;
-    const pcsc = ensurePcsc();
+    let pcsc;
+    try {
+        pcsc = ensurePcsc();
+    }
+    catch (err) {
+        return Promise.resolve({
+            success: false,
+            error: err instanceof Error ? err.message : "PC/SC 초기화 실패",
+        });
+    }
     return new Promise((resolve) => {
         let resolved = false;
         let timeoutId = null;
@@ -227,16 +273,25 @@ export function closePcsc() {
  * Main에서 IPC로 Renderer에 알릴 때 사용할 수 있도록 리더 참조 반환
  */
 export function onReaderStatus(readerName, callback) {
-    const pcsc = ensurePcsc();
-    const reader = pcsc.readers?.[readerName];
-    if (!reader) {
+    if (!pcscliteFactory) {
         return () => { };
     }
-    reader.on("status", callback);
-    return () => {
-        const r = reader;
-        if (typeof r.removeListener === "function") {
-            r.removeListener("status", callback);
+    try {
+        const pcsc = ensurePcsc();
+        const reader = pcsc.readers?.[readerName];
+        if (!reader) {
+            return () => { };
         }
-    };
+        reader.on("status", callback);
+        return () => {
+            const r = reader;
+            if (typeof r.removeListener === "function") {
+                r.removeListener("status", callback);
+            }
+        };
+    }
+    catch (err) {
+        console.warn("[CardReader] onReaderStatus 실패:", err);
+        return () => { };
+    }
 }

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTerminalStore } from '@/stores/terminalStore'
 import { TerminalCard } from './TerminalCard'
 import { UnifiedRouteMap } from './UnifiedRouteMap'
-import { JourneyPanel } from './JourneyPanel'
+import { TerminalInfoPanel } from './TerminalInfoPanel'
 import { TcpLogPanel } from './TcpLogPanel'
 import { EmvTransactionDetailModal } from './EmvTransactionDetailModal'
 import type { TerminalResponse, TcpConnectionConfig } from '@shared/types'
@@ -14,7 +14,7 @@ interface TerminalWorkspaceProps {
 
 /**
  * 단말기 워크스페이스 공통 레이아웃
- * 왼쪽: 노선도(상단) + 단말기 카드(하단) / 가운데: 여정 / 오른쪽: TCP 통신 로그
+ * 왼쪽: 노선도(상단) + 단말기 카드(하단) / 가운데: 터미널 정보 / 오른쪽: TCP 통신 로그
  */
 export function TerminalWorkspace({ tcpConfig }: TerminalWorkspaceProps) {
   const terminal = useTerminalStore((s) => s.terminals[0])
@@ -52,9 +52,9 @@ export function TerminalWorkspace({ tcpConfig }: TerminalWorkspaceProps) {
           )}
         </section>
 
-        {/* 가운데: 여정 */}
-        <section className="flex min-w-0 flex-col gap-4" aria-label="여정">
-          <JourneyPanel />
+        {/* 가운데: 터미널 정보 */}
+        <section className="flex min-w-0 flex-col gap-4" aria-label="터미널 정보">
+          <TerminalInfoPanel />
         </section>
 
         {/* 오른쪽: TCP 통신 로그 */}

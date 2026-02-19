@@ -314,49 +314,48 @@ export function TerminalCard({
 
   return (
     <div className="max-w-sm rounded-2xl border-2 border-slate-700 bg-slate-800/80 p-4 shadow-lg">
-      <p className="mb-2 text-xs font-medium text-slate-400">{terminal.name}</p>
+      {/* Sign On 버튼 (상단) */}
+      <button
+        onClick={handlePowerToggle}
+        disabled={isProcessing}
+        className={`mb-4 w-full ${btnBase} ${
+          terminal.isPoweredOn
+            ? "bg-red-600 text-white hover:bg-red-700"
+            : "bg-emerald-600 text-white hover:bg-emerald-700"
+        }`}
+      >
+        {isProcessing ? "처리 중..." : terminal.isPoweredOn ? "전원 끄기 (Sign Off)" : "전원 켜기 (Sign On)"}
+      </button>
 
-      {/* 상단 디스플레이 영역 */}
-      <div className="mb-4 rounded-xl bg-slate-900/90 px-4 py-4">
-        {/* 1행: 노선 뱃지 */}
-        <div className="flex items-center gap-2">
+      {/* 디스플레이 중심 영역 */}
+      <div className="mb-4 rounded-xl bg-slate-900/90 px-4 py-6">
+        {/* 노선 뱃지 */}
+        <div className="flex items-center gap-2 mb-4">
           <span
-            className="inline-block h-2 w-6 shrink-0 rounded-sm"
+            className="inline-block h-3 w-8 shrink-0 rounded-sm"
             style={{ backgroundColor: lineColor }}
             aria-hidden
           />
-          <span className="text-sm font-medium text-slate-200">{lineName || "—"}</span>
+          <span className="text-base font-semibold text-slate-200">{lineName || "—"}</span>
         </div>
-        {/* 2행: 역명/정류장명 (큰 글씨) */}
-        <p className="mt-3 text-2xl font-semibold tracking-tight text-white">
+        
+        {/* 역명/정류장명 (큰 글씨 - 디스플레이 중심) */}
+        <p className="text-3xl font-bold tracking-tight text-white mb-4">
           {displayStationName}
         </p>
-        {/* 3행: 승차/하차 (두 칸 중 선택 강조) */}
-        <div className="mt-3 flex gap-2">
-          <button
-            type="button"
-            onClick={() => handleTypeChange("entry")}
+        
+        {/* 승차/하차 드롭다운 */}
+        <div className="mt-4">
+          <label className="block text-xs font-medium text-slate-400 mb-2">승차/하차</label>
+          <select
+            value={terminal.type}
+            onChange={(e) => handleTypeChange(e.target.value as "entry" | "exit")}
             disabled={isProcessing}
-            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${
-              terminal.type === "entry"
-                ? "bg-blue-600 text-white ring-2 ring-blue-400/50"
-                : "bg-slate-700 text-slate-400 hover:bg-slate-600"
-            }`}
+            className="w-full rounded-lg px-3 py-2.5 text-sm font-medium bg-slate-700 text-slate-200 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            승차
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTypeChange("exit")}
-            disabled={isProcessing}
-            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${
-              terminal.type === "exit"
-                ? "bg-green-600 text-white ring-2 ring-green-400/50"
-                : "bg-slate-700 text-slate-400 hover:bg-slate-600"
-            }`}
-          >
-            하차
-          </button>
+            <option value="entry">승차</option>
+            <option value="exit">하차</option>
+          </select>
         </div>
       </div>
 
@@ -381,19 +380,6 @@ export function TerminalCard({
           <span className="text-slate-400">{terminal.isConnected ? "연결됨" : "연결 안 됨"}</span>
         </div>
       </div>
-
-      {/* 전원 버튼 */}
-      <button
-        onClick={handlePowerToggle}
-        disabled={isProcessing}
-        className={`mb-4 w-full ${btnBase} ${
-          terminal.isPoweredOn
-            ? "bg-red-600 text-white hover:bg-red-700"
-            : "bg-emerald-600 text-white hover:bg-emerald-700"
-        }`}
-      >
-        {isProcessing ? "처리 중..." : terminal.isPoweredOn ? "전원 끄기 (Sign Off)" : "전원 켜기 (Sign On)"}
-      </button>
 
       {/* 전원 ON 시: Sync · Echo Test (보조) → 카드 탭 (메인) */}
       {terminal.isPoweredOn && (

@@ -1,11 +1,8 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, useEffect } from 'react'
 import { useTerminalStore } from '@/stores/terminalStore'
 import { getStationsByLine } from '@/data/terminalPresets'
 import type { SubwayStationOption } from '@/data/terminalPresets'
 import { calculateStationPositions, LINE_COLORS } from '@/data/stationCoordinates'
-
-const VW = 1000
-const VH = 800
 
 interface SubwayMapProps {
   embedded?: boolean
@@ -14,13 +11,60 @@ interface SubwayMapProps {
 export function SubwayMap({ embedded }: SubwayMapProps) {
   const terminal = useTerminalStore((s) => s.terminals[0])
   const updateTerminal = useTerminalStore((s) => s.updateTerminal)
-  const stationsByLine = getStationsByLine()
+  const allStationsByLine = getStationsByLine()
+  // 2호선만 필터링
+  const stationsByLine = { '2호선': allStationsByLine['2호선'] || [] }
   const containerRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
 
   const { stationsByLineWithPos, allStations, linePaths } = useMemo(() => {
     return calculateStationPositions(stationsByLine)
   }, [stationsByLine])
+
+  // 2호선 역들의 좌표 범위 계산하여 뷰포트 크기 결정
+  const { viewBoxWidth, viewBoxHeight, padding, minX, minY } = useMemo(() => {
+    if (allStations.length === 0) {
+      return { viewBoxWidth: 400, viewBoxHeight: 250, padding: 50, minX: 0, minY: 0 }
+    }
+    
+    const xs = allStations.map(s => s.x)
+    const ys = allStations.map(s => s.y)
+    const minX = Math.min(...xs)
+    const maxX = Math.max(...xs)
+    const minY = Math.min(...ys)
+    const maxY = Math.max(...ys)
+    
+    const padding = 60
+    const viewBoxWidth = maxX - minX + padding * 2
+    const viewBoxHeight = maxY - minY + padding * 2
+    
+    return {
+      viewBoxWidth: Math.max(400, viewBoxWidth),
+      viewBoxHeight: Math.max(250, viewBoxHeight),
+      padding,
+      minX,
+      minY,
+    }
+  }, [allStations])
+
+  // 초기 스케일 자동 조정 (컨테이너에 맞게)
+  useEffect(() => {
+    if (!containerRef.current || allStations.length === 0) return
+    
+    const container = containerRef.current
+    const containerWidth = container.clientWidth
+    const containerHeight = container.clientHeight
+    
+    // 여백 고려
+    const availableWidth = containerWidth - 40
+    const availableHeight = containerHeight - 40
+    
+    const scaleX = availableWidth / viewBoxWidth
+    const scaleY = availableHeight / viewBoxHeight
+    const autoScale = Math.min(scaleX, scaleY, 1.2) // 최대 1.2배까지만
+    
+    setScale(autoScale)
+  }, [viewBoxWidth, viewBoxHeight, allStations.length])
 
   const currentStationId =
     terminal?.transitType === 'subway'
@@ -64,32 +108,41 @@ export function SubwayMap({ embedded }: SubwayMapProps) {
   const content = (
     <div 
       ref={containerRef}
-      className="w-full h-[600px] overflow-auto rounded-lg bg-[#f8fafc] dark:bg-[#0f172a] relative border"
+      className="w-full h-[400px] overflow-auto rounded-lg bg-[#f8fafc] dark:bg-[#0f172a] relative border"
       onWheel={handleWheel}
     >
       <div 
+        className="flex items-center justify-center"
         style={{ 
-          width: VW, 
-          height: VH, 
-          transform: `scale(${scale})`, 
-          transformOrigin: 'top left',
-          transition: 'transform 0.1s ease-out'
+          width: '100%',
+          height: '100%',
+          minHeight: '400px',
         }}
       >
         <svg
-          width={VW}
-          height={VH}
-          viewBox={`0 0 ${VW} ${VH}`}
+          width={viewBoxWidth}
+          height={viewBoxHeight}
+          viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
           className="block"
+          style={{
+            transform: `scale(${scale})`,
+            transformOrigin: 'center center',
+            transition: 'transform 0.1s ease-out',
+          }}
         >
           {/* Lines (직각 경로 우선) */}
           {Object.entries(stationsByLineWithPos).map(([lineKey, stations]) => {
             const points = linePaths[lineKey] ?? stations.map((s) => `${s.x},${s.y}`).join(' ')
             const color = LINE_COLORS[lineKey] ?? '#999'
+            // 좌표를 원점 이동 후 패딩 추가
+            const adjustedPoints = points.split(' ').map(p => {
+              const [x, y] = p.split(',').map(Number)
+              return `${x - minX + padding},${y - minY + padding}`
+            }).join(' ')
             return (
               <polyline
                 key={lineKey}
-                points={points}
+                points={adjustedPoints}
                 fill="none"
                 stroke={color}
                 strokeWidth="6"
@@ -107,6 +160,10 @@ export function SubwayMap({ embedded }: SubwayMapProps) {
             const isExit = role === 'exit'
             const isHighlight = isEntry || isExit
             
+            // 좌표를 원점 이동 후 패딩 추가
+            const adjustedX = station.x - minX + padding
+            const adjustedY = station.y - minY + padding
+            
             // Simple label positioning logic
             // Default: bottom
             let dx = 0
@@ -114,18 +171,16 @@ export function SubwayMap({ embedded }: SubwayMapProps) {
             let anchor: 'start' | 'middle' | 'end' = 'middle'
 
             // Adjust based on position to keep inside bounds
-            if (station.y > VH - 30) dy = -16
-            if (station.x < 30) { dx = 12; dy = 4; anchor = 'start' }
-            if (station.x > VW - 30) { dx = -12; dy = 4; anchor = 'end' }
-
-            // Special cases for crowded areas could be added here
+            if (adjustedY > viewBoxHeight - 30) dy = -16
+            if (adjustedX < 30) { dx = 12; dy = 4; anchor = 'start' }
+            if (adjustedX > viewBoxWidth - 30) { dx = -12; dy = 4; anchor = 'end' }
 
             return (
               <g key={`${station.line}-${station.id}`} className="group">
                 {/* Hit area */}
                 <circle
-                  cx={station.x}
-                  cy={station.y}
+                  cx={adjustedX}
+                  cy={adjustedY}
                   r="12"
                   fill="transparent"
                   className="cursor-pointer"
@@ -136,8 +191,8 @@ export function SubwayMap({ embedded }: SubwayMapProps) {
 
                 {/* Visible node */}
                 <circle
-                  cx={station.x}
-                  cy={station.y}
+                  cx={adjustedX}
+                  cy={adjustedY}
                   r="5"
                   fill={isHighlight ? (isEntry ? '#2563eb' : '#16a34a') : 'white'}
                   stroke={LINE_COLORS[station.line ?? ''] ?? '#666'}
@@ -148,8 +203,8 @@ export function SubwayMap({ embedded }: SubwayMapProps) {
 
                 {/* Label */}
                 <text
-                  x={station.x + dx}
-                  y={station.y + dy}
+                  x={adjustedX + dx}
+                  y={adjustedY + dy}
                   textAnchor={anchor}
                   className="text-[10px] font-medium fill-slate-700 dark:fill-slate-300 pointer-events-none select-none"
                   style={{
@@ -164,8 +219,8 @@ export function SubwayMap({ embedded }: SubwayMapProps) {
                 {/* Status Label */}
                 {isHighlight && (
                   <text
-                    x={station.x + dx}
-                    y={station.y + dy + 12}
+                    x={adjustedX + dx}
+                    y={adjustedY + dy + 12}
                     textAnchor={anchor}
                     className="text-[9px] font-bold fill-white pointer-events-none select-none"
                     style={{
@@ -202,7 +257,7 @@ export function SubwayMap({ embedded }: SubwayMapProps) {
   if (embedded) return content
   return (
     <div className="rounded-lg border bg-card p-4">
-      <h3 className="mb-3 text-sm font-semibold text-foreground">지하철 노선도 (1~9호선)</h3>
+      <h3 className="mb-3 text-sm font-semibold text-foreground">지하철 노선도 (2호선)</h3>
       {content}
     </div>
   )
