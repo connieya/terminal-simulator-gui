@@ -3,7 +3,7 @@ import { useTerminalStore } from "@/stores/terminalStore";
 import { tcpClient } from "@/utils/tcpClient";
 import { useToast } from "@/contexts/ToastContext";
 import type { TerminalInfo, TerminalResponse, TcpConnectionConfig } from "@shared/types";
-import { DEFAULT_TCP_CONFIG } from "@shared/types";
+import { DEFAULT_TCP_CONFIG, DEFAULT_MGMT_TCP_CONFIG, BOOT_STAGES } from "@shared/types";
 import {
   busRoutes,
   subwayStations,
@@ -18,7 +18,7 @@ interface TerminalCardProps {
   terminal: TerminalInfo;
   /** 카드 탭 응답 수신 후 EMV 상세 모달 등을 열 때 사용 */
   onCardTapComplete?: (response: TerminalResponse) => void;
-  /** Sign On 시 미연결이면 이 설정으로 연결. 미전달 시 DEFAULT_TCP_CONFIG(시뮬레이터) 사용 */
+  /** 터미널 구동 시 미연결이면 이 설정으로 연결. 미전달 시 DEFAULT_TCP_CONFIG(시뮬레이터) 사용 */
   tcpConfig?: TcpConnectionConfig;
 }
 
@@ -34,7 +34,7 @@ export function TerminalCard({
   const [isProcessing, setIsProcessing] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const effectiveTcpConfig = tcpConfig ?? DEFAULT_TCP_CONFIG;
-  const { setTerminalPower, updateTerminal } = useTerminalStore();
+  const { setTerminalPower, updateTerminal, setBootStage } = useTerminalStore();
   const { success, error: showError } = useToast();
   const addJourney = useJourneyStore((state) => state.addJourney);
   const transitType =
@@ -126,44 +126,126 @@ export function TerminalCard({
     });
   };
 
+  const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
   const handlePowerToggle = async () => {
     setIsProcessing(true);
     try {
       const commandType = terminal.isPoweredOn ? "signoff" : "signon";
 
-      // 전원 켜기 시: TCP 미연결이면 먼저 연결 후 signon
-      if (commandType === "signon") {
-        const isConnected = await tcpClient.isConnected();
-        if (!isConnected) {
-          try {
-            await tcpClient.connect(effectiveTcpConfig);
-          } catch {
-            showError(
-              "서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요."
-            );
-            return;
-          }
+      if (commandType === "signoff") {
+        // 터미널 종료: signoff → 거래 서버, 듀얼 연결 해제
+        try {
+          const journeyLog = getJourneyLog();
+          await tcpClient.sendCommand({
+            type: commandType,
+            terminalId: terminal.terminalId,
+            transitType: terminal.transitType,
+            ...(journeyLog ? { journeyLog } : { presetKey: getPresetKey() }),
+          });
+        } catch {
+          // signoff 실패해도 종료 진행
+        }
+        await tcpClient.disconnectAll();
+        setTerminalPower(terminal.id, false);
+        updateTerminal(terminal.id, { lastCommandTime: Date.now() });
+        return;
+      }
+
+      // 터미널 구동: 부트 시퀀스 시뮬레이션
+      // 1. 데몬 연결 (듀얼 TCP 연결)
+      setBootStage(terminal.id, "daemon_connect");
+      const dualResult = await tcpClient.connectDual(
+        effectiveTcpConfig,
+        DEFAULT_MGMT_TCP_CONFIG,
+      );
+
+      // 관리 서버 실패 → 부트 중단
+      if (!dualResult.mgmt.success) {
+        setBootStage(terminal.id, "off");
+        showError(
+          `관리 서버에 연결할 수 없습니다: ${dualResult.mgmt.error || "Unknown error"}`
+        );
+        return;
+      }
+
+      // 거래 서버 실패 → 경고만 (카드 탭 불가하지만 부트는 계속)
+      if (!dualResult.txn.success) {
+        showError(
+          "거래 서버에 연결할 수 없습니다. 카드 탭이 불가합니다."
+        );
+      }
+
+      // 2. 리더기 감지
+      setBootStage(terminal.id, "reader_detect");
+      await delay(300);
+
+      // 3. VSAM 감지
+      setBootStage(terminal.id, "vsam_detect");
+      await delay(300);
+
+      // 4. 라이브러리 초기화
+      setBootStage(terminal.id, "lib_init");
+      await delay(300);
+
+      // 5. 리스트 동기화 (양쪽 서버에 병렬 전송)
+      setBootStage(terminal.id, "list_sync");
+      const journeyLog = getJourneyLog();
+
+      // signon → 거래 서버(9999), list_sync → 관리 서버(21000, CLIB LIST_UPDATE)
+      const syncPromises: Promise<unknown>[] = [];
+
+      // 거래 서버가 연결되어 있으면 signon 전송
+      if (dualResult.txn.success) {
+        syncPromises.push(
+          tcpClient.sendCommand({
+            type: "signon",
+            terminalId: terminal.terminalId,
+            transitType: terminal.transitType,
+            ...(journeyLog ? { journeyLog } : { presetKey: getPresetKey() }),
+          })
+        );
+      }
+
+      // 관리 서버에 LIST_UPDATE 전송
+      syncPromises.push(
+        tcpClient.sendCommand({ type: "list_sync" })
+      );
+
+      const results = await Promise.allSettled(syncPromises);
+
+      // 결과 확인: signon 결과 (거래 서버 연결된 경우만)
+      const signonIdx = dualResult.txn.success ? 0 : -1;
+      const listSyncIdx = dualResult.txn.success ? 1 : 0;
+
+      if (signonIdx >= 0) {
+        const signonResult = results[signonIdx];
+        if (signonResult.status === "rejected") {
+          setBootStage(terminal.id, "off");
+          showError(`Signon 실패: ${signonResult.reason}`);
+          return;
+        }
+        const signonResponse = signonResult.value as { success: boolean; message?: string };
+        if (!signonResponse.success) {
+          setBootStage(terminal.id, "off");
+          showError(`Signon 실패: ${signonResponse.message || "Unknown error"}`);
+          return;
         }
       }
 
-      const journeyLog = getJourneyLog();
-      const response = await tcpClient.sendCommand({
-        type: commandType,
-        terminalId: terminal.terminalId,
-        transitType: terminal.transitType,
-        ...(journeyLog ? { journeyLog } : { presetKey: getPresetKey() }),
-      });
-
-      if (response.success) {
-        setTerminalPower(terminal.id, !terminal.isPoweredOn);
-        updateTerminal(terminal.id, {
-          lastCommandTime: Date.now(),
-        });
-      } else {
-        showError(`명령 실행 실패: ${response.message || "Unknown error"}`);
+      const listSyncResult = results[listSyncIdx];
+      if (listSyncResult.status === "rejected") {
+        // LIST_UPDATE 실패는 경고만 (치명적이지 않음)
+        console.warn("LIST_UPDATE failed:", listSyncResult.reason);
       }
+
+      // 6. 운영 대기
+      setBootStage(terminal.id, "ready");
+      setTerminalPower(terminal.id, true);
+      updateTerminal(terminal.id, { lastCommandTime: Date.now() });
     } catch (error) {
       console.error("Power toggle failed:", error);
+      setBootStage(terminal.id, "off");
       showError(
         error instanceof Error ? error.message : "명령 실행에 실패했습니다"
       );
@@ -314,7 +396,7 @@ export function TerminalCard({
 
   return (
     <div className="max-w-sm rounded-2xl border-2 border-slate-700 bg-slate-800/80 p-4 shadow-lg">
-      {/* Sign On 버튼 (상단) */}
+      {/* 터미널 구동 버튼 (상단) */}
       <button
         onClick={handlePowerToggle}
         disabled={isProcessing}
@@ -324,7 +406,7 @@ export function TerminalCard({
             : "bg-emerald-600 text-white hover:bg-emerald-700"
         }`}
       >
-        {isProcessing ? "처리 중..." : terminal.isPoweredOn ? "전원 끄기 (Sign Off)" : "전원 켜기 (Sign On)"}
+        {isProcessing ? "처리 중..." : terminal.isPoweredOn ? "터미널 종료" : "터미널 구동"}
       </button>
 
       {/* 디스플레이 중심 영역 */}
@@ -359,26 +441,46 @@ export function TerminalCard({
         </div>
       </div>
 
-      {/* 상태 한 줄: 전원 · 연결 */}
-      <div className="mb-3 flex flex-wrap items-center gap-3 text-xs">
-        <div className="flex items-center gap-1.5">
-          <span
-            className={`inline-block h-2 w-2 rounded-full ${
-              terminal.isPoweredOn ? "bg-emerald-500" : "bg-slate-500"
-            }`}
-            title={terminal.isPoweredOn ? "전원 ON" : "전원 OFF"}
-          />
-          <span className="text-slate-400">{terminal.isPoweredOn ? "전원 ON" : "전원 OFF"}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span
-            className={`inline-block h-2 w-2 rounded-full ${
-              terminal.isConnected ? "bg-blue-500" : "bg-slate-500"
-            }`}
-            title={terminal.isConnected ? "연결됨" : "연결 안 됨"}
-          />
-          <span className="text-slate-400">{terminal.isConnected ? "연결됨" : "연결 안 됨"}</span>
-        </div>
+      {/* 부트 시퀀스 상태바 */}
+      <div className="mb-3">
+        {terminal.bootStage === "off" ? (
+          <div className="flex items-center gap-1.5 text-xs">
+            <span className="inline-block h-2 w-2 rounded-full bg-slate-500" />
+            <span className="text-slate-400">대기</span>
+          </div>
+        ) : terminal.bootStage === "ready" ? (
+          <div className="flex items-center gap-1.5 text-xs">
+            <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+            <span className="text-emerald-400">운영 중</span>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            <div className="flex gap-1">
+              {BOOT_STAGES.map(({ stage }, i) => {
+                const currentIndex = BOOT_STAGES.findIndex(
+                  (s) => s.stage === terminal.bootStage
+                );
+                const isDone = i < currentIndex;
+                const isCurrent = i === currentIndex;
+                return (
+                  <div
+                    key={stage}
+                    className={`h-1.5 flex-1 rounded-full ${
+                      isDone
+                        ? "bg-emerald-500"
+                        : isCurrent
+                          ? "bg-emerald-400 animate-pulse"
+                          : "bg-slate-600"
+                    }`}
+                  />
+                );
+              })}
+            </div>
+            <p className="text-xs text-slate-400">
+              {BOOT_STAGES.find((s) => s.stage === terminal.bootStage)?.label ?? ""} 중...
+            </p>
+          </div>
+        )}
       </div>
 
       {/* 전원 ON 시: Sync · Echo Test (보조) → 카드 탭 (메인) */}

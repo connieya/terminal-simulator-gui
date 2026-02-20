@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
 import { TcpClient } from "./tcpClient.js";
+import { ClibClient } from "./clibClient.js";
 import {
   listReaders,
   connectReader,
@@ -14,6 +15,7 @@ import {
 } from "./cardReader.js";
 import { runEmvContactless } from "./emvContactless.js";
 import type { TcpConnectionConfig, TerminalCommand } from "../shared/types.js";
+import { DEFAULT_MGMT_TCP_CONFIG } from "../shared/types.js";
 
 // ESM에서 __dirname 정의
 const __filename = fileURLToPath(import.meta.url);
@@ -21,7 +23,8 @@ const __dirname = path.dirname(__filename);
 
 // Electron Main Process
 let mainWindow: BrowserWindow | null = null;
-let tcpClient: TcpClient | null = null;
+let txnClient: TcpClient | null = null;   // 거래 서버 (port 9999)
+let mgmtClient: ClibClient | null = null;  // 관리 서버 (port 21000, CLIB)
 
 /** Main에서 Renderer 우측 TCP 로그 패널로 로그 푸시 (EMV 단계 등) */
 function sendTcpLog(
@@ -93,31 +96,28 @@ function createWindow() {
   });
 }
 
-// TCP 클라이언트 초기화
-function initTcpClient(config: TcpConnectionConfig = DEFAULT_CONFIG) {
-  if (tcpClient) {
-    tcpClient.disconnect();
+// 거래 TCP 클라이언트 초기화
+function initTxnClient(config: TcpConnectionConfig = DEFAULT_CONFIG) {
+  if (txnClient) {
+    txnClient.disconnect();
   }
-  tcpClient = new TcpClient(config);
+  txnClient = new TcpClient(config);
 }
 
 // IPC 핸들러 등록
 function setupIpcHandlers() {
-  // TCP 연결
+  // TCP 연결 (거래 서버 단일 연결 — 하위 호환)
   ipcMain.handle("tcp:connect", async (_, config?: TcpConnectionConfig) => {
     try {
-      // config가 제공되면 새로운 클라이언트 생성, 없으면 기본값 사용
       const connectionConfig = config || DEFAULT_CONFIG;
 
-      // 기존 연결이 있으면 먼저 끊기
-      if (tcpClient) {
-        tcpClient.disconnect();
-        tcpClient = null;
+      if (txnClient) {
+        txnClient.disconnect();
+        txnClient = null;
       }
 
-      // 새로운 클라이언트 생성 및 연결
-      initTcpClient(connectionConfig);
-      await tcpClient!.connect();
+      initTxnClient(connectionConfig);
+      await txnClient!.connect();
 
       console.log(
         `TCP connected to ${connectionConfig.host}:${connectionConfig.port}`,
@@ -134,12 +134,12 @@ function setupIpcHandlers() {
     }
   });
 
-  // TCP 연결 해제
+  // TCP 연결 해제 (거래 서버 — 하위 호환)
   ipcMain.handle("tcp:disconnect", async () => {
     try {
-      if (tcpClient) {
-        tcpClient.disconnect();
-        tcpClient = null;
+      if (txnClient) {
+        txnClient.disconnect();
+        txnClient = null;
       }
       return { success: true };
     } catch (error) {
@@ -150,18 +150,108 @@ function setupIpcHandlers() {
     }
   });
 
-  // 연결 상태 확인
+  // 연결 상태 확인 (거래 서버 — 하위 호환)
   ipcMain.handle("tcp:isConnected", () => {
-    return tcpClient?.isConnected() || false;
+    return txnClient?.isConnected() || false;
   });
 
-  // 명령 전송
+  // 듀얼 TCP 연결 (거래 + 관리 서버 동시 연결)
+  ipcMain.handle(
+    "tcp:connectDual",
+    async (
+      _,
+      params: { txnConfig?: TcpConnectionConfig; mgmtConfig?: TcpConnectionConfig },
+    ) => {
+      const txnConfig = params.txnConfig || DEFAULT_CONFIG;
+      const mgmtConfig = params.mgmtConfig || DEFAULT_MGMT_TCP_CONFIG;
+
+      // 거래 서버 연결
+      let txnResult: { success: boolean; error?: string };
+      try {
+        if (txnClient) {
+          txnClient.disconnect();
+          txnClient = null;
+        }
+        initTxnClient(txnConfig);
+        await txnClient!.connect();
+        txnResult = { success: true };
+        console.log(`TXN connected to ${txnConfig.host}:${txnConfig.port}`);
+      } catch (error) {
+        txnResult = {
+          success: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+        };
+        console.error("TXN connection failed:", txnResult.error);
+      }
+
+      // 관리 서버 연결
+      let mgmtResult: { success: boolean; error?: string };
+      try {
+        if (mgmtClient) {
+          mgmtClient.disconnect();
+          mgmtClient = null;
+        }
+        mgmtClient = new ClibClient(mgmtConfig);
+        await mgmtClient.connect();
+        mgmtResult = { success: true };
+        console.log(`MGMT connected to ${mgmtConfig.host}:${mgmtConfig.port}`);
+      } catch (error) {
+        mgmtResult = {
+          success: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+        };
+        console.error("MGMT connection failed:", mgmtResult.error);
+      }
+
+      return { txn: txnResult, mgmt: mgmtResult };
+    },
+  );
+
+  // 듀얼 연결 해제
+  ipcMain.handle("tcp:disconnectAll", async () => {
+    try {
+      if (txnClient) {
+        txnClient.disconnect();
+        txnClient = null;
+      }
+      if (mgmtClient) {
+        mgmtClient.disconnect();
+        mgmtClient = null;
+      }
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  });
+
+  // 듀얼 연결 상태
+  ipcMain.handle("tcp:connectionStatus", () => {
+    return {
+      txn: txnClient?.isConnected() || false,
+      mgmt: mgmtClient?.isConnected() || false,
+    };
+  });
+
+  // 명령 전송 (커맨드 타입별 라우팅)
   ipcMain.handle("tcp:sendCommand", async (_, command: TerminalCommand) => {
     try {
-      if (!tcpClient || !tcpClient.isConnected()) {
+      // list_sync → 관리 서버 (CLIB LIST_UPDATE)
+      if (command.type === "list_sync") {
+        if (!mgmtClient || !mgmtClient.isConnected()) {
+          throw new Error("관리 서버에 연결되지 않았습니다");
+        }
+        const response = await mgmtClient.sendListSync();
+        return { success: true, response };
+      }
+
+      // 그 외 → 거래 서버
+      if (!txnClient || !txnClient.isConnected()) {
         throw new Error("Not connected to terminal simulator");
       }
-      const response = await tcpClient.sendCommand(command);
+      const response = await txnClient.sendCommand(command);
       return { success: true, response };
     } catch (error) {
       return {
@@ -179,10 +269,10 @@ function setupIpcHandlers() {
       params: { terminalId: string; iccDataHex: string; journeyLog?: string },
     ) => {
       try {
-        if (!tcpClient || !tcpClient.isConnected()) {
+        if (!txnClient || !txnClient.isConnected()) {
           throw new Error("TPS에 연결되지 않았습니다");
         }
-        const response = await tcpClient.sendTlvAuthorization(params);
+        const response = await txnClient.sendTlvAuthorization(params);
         return { success: true, response };
       } catch (error) {
         return {
@@ -199,7 +289,7 @@ function setupIpcHandlers() {
     "tcp:tapCard",
     async (_, cardData?: { type?: string; data?: string }) => {
       try {
-        if (!tcpClient || !tcpClient.isConnected()) {
+        if (!txnClient || !txnClient.isConnected()) {
           throw new Error("Not connected to terminal simulator");
         }
         const command: TerminalCommand = {
@@ -207,7 +297,7 @@ function setupIpcHandlers() {
           cardType: cardData?.type as TerminalCommand["cardType"],
           cardData: cardData?.data,
         };
-        const response = await tcpClient.sendCommand(command);
+        const response = await txnClient.sendCommand(command);
         return { success: true, response };
       } catch (error) {
         return {
@@ -317,7 +407,7 @@ function setupIpcHandlers() {
 
 app.whenReady().then(() => {
   setupIpcHandlers();
-  initTcpClient();
+  initTxnClient();
   createWindow();
 
   app.on("activate", () => {
@@ -328,8 +418,11 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
-  if (tcpClient) {
-    tcpClient.disconnect();
+  if (txnClient) {
+    txnClient.disconnect();
+  }
+  if (mgmtClient) {
+    mgmtClient.disconnect();
   }
   if (process.platform !== "darwin") {
     app.quit();
@@ -337,8 +430,11 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
-  if (tcpClient) {
-    tcpClient.disconnect();
+  if (txnClient) {
+    txnClient.disconnect();
+  }
+  if (mgmtClient) {
+    mgmtClient.disconnect();
   }
   closePcsc();
 });

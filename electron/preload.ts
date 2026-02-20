@@ -30,6 +30,16 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
     // 카드 탭 트리거 (편의 함수)
     tapCard: (cardData?: any) => ipcRenderer.invoke("tcp:tapCard", cardData),
+
+    // 듀얼 TCP 연결 (거래 + 관리 서버)
+    connectDual: (params: { txnConfig?: any; mgmtConfig?: any }) =>
+      ipcRenderer.invoke("tcp:connectDual", params),
+
+    // 듀얼 연결 해제
+    disconnectAll: () => ipcRenderer.invoke("tcp:disconnectAll"),
+
+    // 듀얼 연결 상태
+    connectionStatus: () => ipcRenderer.invoke("tcp:connectionStatus"),
   },
 
   // PC/SC 카드 리더 API (직접 거래 카드 탭 시 카드 태그 대기 후 연결)

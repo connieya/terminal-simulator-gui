@@ -30,6 +30,18 @@ declare global {
           response?: TerminalResponse;
           error?: string;
         }>;
+        connectDual: (params: {
+          txnConfig?: TcpConnectionConfig;
+          mgmtConfig?: TcpConnectionConfig;
+        }) => Promise<{
+          txn: { success: boolean; error?: string };
+          mgmt: { success: boolean; error?: string };
+        }>;
+        disconnectAll: () => Promise<{ success: boolean; error?: string }>;
+        connectionStatus: () => Promise<{
+          txn: boolean;
+          mgmt: boolean;
+        }>;
       };
       /** 카드 탭 시 리더에 카드가 태그될 때까지 대기 후 연결 (직접 거래용) */
       cardReader: {
@@ -153,6 +165,59 @@ export class TcpClientService {
     }
     this.addLog("in", `응답 수신: ${JSON.stringify(result.response)}`);
     return result.response;
+  }
+
+  /**
+   * 듀얼 TCP 연결 (거래 서버 + 관리 서버 동시)
+   */
+  async connectDual(
+    txnConfig?: TcpConnectionConfig,
+    mgmtConfig?: TcpConnectionConfig,
+  ): Promise<{
+    txn: { success: boolean; error?: string };
+    mgmt: { success: boolean; error?: string };
+  }> {
+    if (!window.electronAPI) {
+      throw new Error("Electron API is not available");
+    }
+    this.addLog("info", "듀얼 TCP 연결 시도 (거래 + 관리 서버)");
+    const result = await window.electronAPI.tcp.connectDual({
+      txnConfig,
+      mgmtConfig,
+    });
+    if (result.txn.success) {
+      this.addLog("info", "거래 서버 연결 성공");
+    } else {
+      this.addLog("error", `거래 서버 연결 실패: ${result.txn.error}`);
+    }
+    if (result.mgmt.success) {
+      this.addLog("info", "관리 서버 연결 성공");
+    } else {
+      this.addLog("error", `관리 서버 연결 실패: ${result.mgmt.error}`);
+    }
+    return result;
+  }
+
+  /**
+   * 듀얼 연결 해제
+   */
+  async disconnectAll(): Promise<void> {
+    if (!window.electronAPI) {
+      throw new Error("Electron API is not available");
+    }
+    this.addLog("info", "듀얼 TCP 연결 해제");
+    await window.electronAPI.tcp.disconnectAll();
+    this.addLog("info", "듀얼 연결 해제 완료");
+  }
+
+  /**
+   * 듀얼 연결 상태 확인
+   */
+  async connectionStatus(): Promise<{ txn: boolean; mgmt: boolean }> {
+    if (!window.electronAPI) {
+      return { txn: false, mgmt: false };
+    }
+    return await window.electronAPI.tcp.connectionStatus();
   }
 
   /**

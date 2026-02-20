@@ -1,17 +1,18 @@
 import { create } from 'zustand'
-import type { TerminalInfo } from '@shared/types'
+import type { TerminalInfo, BootStage } from '@shared/types'
 
 interface TerminalStore {
   terminals: TerminalInfo[]
-  addTerminal: (terminal: Omit<TerminalInfo, 'isPoweredOn' | 'isConnected' | 'lastCommandTime'>) => void
+  addTerminal: (terminal: Omit<TerminalInfo, 'isPoweredOn' | 'isConnected' | 'bootStage' | 'lastCommandTime'>) => void
   removeTerminal: (id: string) => void
   updateTerminal: (id: string, updates: Partial<TerminalInfo>) => void
   setTerminalPower: (id: string, isPoweredOn: boolean) => void
   setTerminalConnected: (id: string, isConnected: boolean) => void
+  setBootStage: (id: string, stage: BootStage) => void
 }
 
 // 기본 단말기 1대 (노선도에서 지하철/버스 클릭 시 데이터가 변경됨)
-const defaultTerminals: Omit<TerminalInfo, 'isPoweredOn' | 'isConnected'>[] = [
+const defaultTerminals: Omit<TerminalInfo, 'isPoweredOn' | 'isConnected' | 'bootStage'>[] = [
   {
     id: 'terminal-1',
     transitType: 'subway',
@@ -28,6 +29,7 @@ export const useTerminalStore = create<TerminalStore>((set) => ({
     ...t,
     isPoweredOn: false,
     isConnected: false,
+    bootStage: 'off' as const,
   })),
 
   addTerminal: (terminal) =>
@@ -38,6 +40,7 @@ export const useTerminalStore = create<TerminalStore>((set) => ({
           ...terminal,
           isPoweredOn: false,
           isConnected: false,
+          bootStage: 'off' as const,
         },
       ],
     })),
@@ -57,7 +60,7 @@ export const useTerminalStore = create<TerminalStore>((set) => ({
   setTerminalPower: (id, isPoweredOn) =>
     set((state) => ({
       terminals: state.terminals.map((t) =>
-        t.id === id ? { ...t, isPoweredOn } : t
+        t.id === id ? { ...t, isPoweredOn, ...(isPoweredOn ? {} : { bootStage: 'off' as const }) } : t
       ),
     })),
 
@@ -65,6 +68,13 @@ export const useTerminalStore = create<TerminalStore>((set) => ({
     set((state) => ({
       terminals: state.terminals.map((t) =>
         t.id === id ? { ...t, isConnected } : t
+      ),
+    })),
+
+  setBootStage: (id, stage) =>
+    set((state) => ({
+      terminals: state.terminals.map((t) =>
+        t.id === id ? { ...t, bootStage: stage } : t
       ),
     })),
 }))
